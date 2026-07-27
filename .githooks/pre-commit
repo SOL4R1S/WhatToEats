@@ -1,0 +1,39 @@
+#!/bin/sh
+
+if [ ! -f "./Backend/gradlew" ]; then
+    echo "⚠️  gradlew 없음 — 코드 스타일 검사 건너뜀"
+    exit 0
+fi
+
+echo "🔍 코드 스타일 검사 중..."
+
+
+OUTPUT=$(./Backend/gradlew -p Backend spotlessCheck --daemon 2>&1)
+
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo ""
+
+    if echo "$OUTPUT" | grep -q "format violations"; then
+        echo "❌ 코드 스타일 위반 파일이 있습니다."
+        echo "$OUTPUT" | grep -A 999 "format violations" | grep "src/" | sed 's/^/   📄 /'
+        echo ""
+        echo "   아래 명령어로 자동 수정 후 다시 커밋하세요."
+        echo ""
+        echo "   프로젝트 루트에서 : ./Backend/gradlew -p Backend spotlessApply"
+        echo "   Backend 폴더에서  : ./gradlew spotlessApply"
+    elif echo "$OUTPUT" | grep -q "lints"; then
+        echo "❌ Java 문법 오류가 있습니다. 코드를 직접 수정하세요."
+        echo "$OUTPUT" | grep "src/" | sed 's/^/   📄 /'
+    else
+        echo "❌ 코드 스타일 검사 실행 중 오류가 발생했습니다."
+        echo ""
+        echo "$OUTPUT" | tail -10
+    fi
+    echo ""
+    exit 1
+fi
+
+echo "✅ 코드 스타일 검사 통과"
+exit 0

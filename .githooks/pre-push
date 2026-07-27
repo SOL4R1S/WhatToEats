@@ -1,0 +1,25 @@
+#!/bin/sh
+
+if [ ! -f "./Backend/gradlew" ]; then
+    echo "⚠️  gradlew 없음 — 테스트 검사 건너뜀"
+    exit 0
+fi
+
+echo "🧪 전체 테스트 실행 중... (시간이 걸릴 수 있습니다)"
+echo ""
+
+./Backend/gradlew -p Backend test --daemon -q
+STATUS=$?
+
+if [ $STATUS -ne 0 ]; then
+    echo ""
+    echo "❌ 테스트 실패 — 푸시가 차단되었습니다."
+    echo "   실패한 테스트를 수정한 후 다시 푸시하세요."
+    echo ""
+    echo "   테스트 결과 상세: build/reports/tests/test/index.html"
+    echo ""
+    exit 1
+fi
+
+echo "✅ 모든 테스트 통과"
+exit 0

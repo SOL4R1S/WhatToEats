@@ -1,0 +1,84 @@
+docs/architecture.md
+Backend/HELP.md
+.gradle
+!gradle/wrapper/gradle-wrapper.jar
+
+### STS ###
+Backend/.apt_generated
+Backend/.classpath
+Backend/.factorypath
+Backend/.project
+Backend/.settings
+Backend/.springBeans
+Backend/.sts4-cache
+Backend/bin/
+!**/src/main/**/bin/
+!**/src/test/**/bin/
+
+### IntelliJ IDEA ###
+/Backend/.idea
+*.iws
+*.iml
+*.ipr
+out/
+!**/src/main/**/out/
+!**/src/test/**/out/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+### VS Code ###
+.vscode/
+
+Backend/build/
+
+### db ###
+/Backend/schema.sql
+/Backend/schema_2to5.sql
+/schema.sql
+
+### yaml ###
+/Backend/src/main/resources/application.yaml
+/Backend/src/main/resources/application-test.yaml
+### 기획아카이빙/기능정의서/erd img ###
+/기획아카이빙img/
+/기능정의서img/
+/Backend/ERD Screenshot.png
+/wireframe/
+
+### md files ###
+/기획아카이빙.md
+/스크린샷 2026-06-23 10.09.45.png
+/예시1.jpg
+/예시2.jpg
+/기능정의서.md
+/유저스토리.md
+/Backend/DESIGN.md
+/Backend/erd-definitions.md
+/.hermes/
+/.gjc/
+/.idea/
+/kakao_login/
+/DESIGN.md
+/API명세서.md
+
+/.DS_Store
+/Backend/.DS_Store
+/frontend/.DS_Store
+/API명세서.md
+
+### Claude / AI ###
+/.agents/
+/.claude/
+/.understand-anything/
+/skills-lock.json
+/Backend/application.yaml
+.DS_Store
+
+### Kotlin migration baseline (local only) ###
+/Backend/docs/migration/
+/Backend/scripts/migration-baseline.sh

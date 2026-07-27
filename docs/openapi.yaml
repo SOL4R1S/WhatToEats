@@ -1,0 +1,2482 @@
+openapi: 3.0.3
+info:
+  title: NBE10-12-2-Team1 API
+  description: |
+    오늘 뭐먹지 SNS 서비스 REST API 문서입니다.
+
+    ## 인증
+    인증이 필요한 API는 요청 헤더에 Bearer 토큰을 포함해야 합니다.
+    ```
+    Authorization: Bearer {accessToken}
+    ```
+  version: 1.0.0
+
+servers:
+  - url: https://api.example.com
+    description: Production Server
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        data:
+          type: object
+          nullable: true
+          example: null
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "ERROR_CODE"
+            message:
+              type: string
+              example: "상세한 에러 메시지 내용"
+
+tags:
+  - name: Auth
+    description: 🔐 인증 및 토큰 관리
+  - name: Users
+    description: 👤 회원 관리
+  - name: Follow
+    description: 👥 관계 관리
+  - name: Restaurants
+    description: 🍽️ 식당 관리 및 검색
+  - name: Feeds
+    description: 📝 피드 게시글 관리
+  - name: Comments
+    description: 💬 댓글 관리
+  - name: Lists
+    description: 📋 맛집 리스트
+  - name: Notifications
+    description: 🔔 알림 관리
+
+paths:
+
+  # ─────────────────────────────────────────────
+  # Auth
+  # ─────────────────────────────────────────────
+  /api/v1/auth/reissue:
+    post:
+      tags: [Auth]
+      summary: 토큰 재발급
+      description: Refresh Token을 이용해 새로운 Access Token과 Refresh Token을 발급합니다.
+      security: []
+      responses:
+        "200":
+          description: 토큰 재발급 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+        "401":
+          description: Refresh Token 만료 / 위조 / 불일치 / 연결된 사용자 없음
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_REFRESH_TOKEN"
+                  message: "유효하지 않은 Refresh Token입니다. 다시 로그인해주세요."
+        "500":
+          description: 서버 오류 / Access Token 재발급 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/auth/signup:
+    post:
+      tags: [Auth]
+      summary: 일반 회원가입
+      description: 이메일(로그인id)와 비밀번호로 회원가입합니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loginId, password, nickname]
+              properties:
+                loginId:
+                  type: string
+                  format: email
+                  example: "foodie@example.com"
+                password:
+                  type: string
+                  minLength: 8
+                  example: "password123!"
+                nickname:
+                  type: string
+                  maxLength: 20
+                  example: "푸디보이"
+      responses:
+        "200":
+          description: 회원가입 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  nickname: "푸디보이"
+                  profileImage: null
+                  email: "foodie@example.com"
+                  provider: "LOCAL"
+                  createdAt: "2026-07-03T10:00:00"
+                message: "회원가입이 완료되었습니다."
+        "400":
+          description: 필수 필드 누락 / 이메일 형식 오류 / 비밀번호 8자 미만 / 닉네임 20자 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "409":
+          description: 이미 사용 중인 이메일 (DUPLICATE_EMAIL)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "DUPLICATE_EMAIL"
+                  message: "이미 사용 중인 이메일입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: 일반 로그인
+      description: 이메일(로그인id)와 비밀번호로 로그인합니다.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [loginId, password]
+              properties:
+                loginId:
+                  type: string
+                  format: email
+                  example: "foodie@example.com"
+                password:
+                  type: string
+                  example: "password123!"
+      responses:
+        "200":
+          description: 로그인 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  nickname: "푸디보이"
+                  profileImage: null
+                  email: "foodie@example.com"
+                  provider: "LOCAL"
+                  createdAt: "2026-07-03T10:00:00"
+                message: "로그인에 성공했습니다."
+        "400":
+          description: 필수 필드 누락 / 이메일 형식 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "401":
+          description: 이메일 또는 비밀번호 불일치 (INVALID_CREDENTIALS)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_CREDENTIALS"
+                  message: "이메일 또는 비밀번호가 올바르지 않습니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: 로그아웃
+      description: Access Token을 무효화하여 로그아웃합니다. 카카오 및 일반 로그인 공통으로 사용합니다.
+      responses:
+        "200":
+          description: 로그아웃 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "로그아웃되었습니다."
+        "401":
+          description: 인증되지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "인증이 만료되었습니다. 다시 로그인해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Users
+  # ─────────────────────────────────────────────
+  /api/v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: 프로필 조회
+      description: 사용자 ID로 프로필 정보를 조회합니다. 본인 조회 시 isOwnProfile=true를 반환하며, 타인 조회 시 isOwnProfile=false와 isFollowing 여부를 함께 반환합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 조회할 사용자 ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: 프로필 조회 성공
+          content:
+            application/json:
+              example:
+                id: 1
+                nickname: "푸디보이"
+                profileImage: "https://k.kakaocdn.net/.../img.jpg"
+                email: "foodie@kakao.com"
+                provider: "KAKAO"
+                createdAt: "2026-06-20T10:00:00"
+                isOwnProfile: true
+                isFollowing: false
+        "401":
+          description: 인증 토큰 없음 또는 만료
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "인증이 만료되었습니다. 다시 로그인해주세요."
+        "404":
+          description: 존재하지 않는 사용자 (USER_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                status: 404
+                message: "User not found: 1"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/users/me:
+    get:
+      tags: [Users]
+      summary: 내 프로필 조회
+      description: 로그인한 사용자의 프로필 정보를 조회합니다.
+      responses:
+        "200":
+          description: 내 프로필 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  nickname: "푸디보이"
+                  profileImage: "https://k.kakaocdn.net/.../img.jpg"
+                  email: "foodie@kakao.com"
+                  provider: "KAKAO"
+                  createdAt: "2026-06-20T10:00:00"
+                  isOwnProfile: true
+                  isFollowing: false
+        "401":
+          description: 인증 토큰 없음 또는 만료
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "인증이 만료되었습니다. 다시 로그인해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    patch:
+      tags: [Users]
+      summary: 내 프로필 수정
+      description: |
+        본인 프로필의 닉네임, 이메일, 비밀번호를 수정합니다.
+        LOCAL 사용자는 이메일/비밀번호 변경이 가능하고, KAKAO 사용자는 닉네임만 수정 가능합니다.
+        프로필 이미지는 `/api/v1/users/me/image`를 사용합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                nickname:
+                  type: string
+                  minLength: 1
+                  maxLength: 20
+                  example: "새로운닉네임"
+                email:
+                  type: string
+                  format: email
+                  nullable: true
+                  example: "new@example.com"
+                currentPassword:
+                  type: string
+                  nullable: true
+                  example: "oldPassword123!"
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 20
+                  nullable: true
+                  example: "newPassword123!"
+      responses:
+        "200":
+          description: 프로필 수정 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  nickname: "새로운닉네임"
+                  profileImage: "https://example.com/profile.jpg"
+                  email: "new@example.com"
+                  provider: "LOCAL"
+                  createdAt: "2026-07-03T10:00:00"
+                  isOwnProfile: true
+                  isFollowing: false
+        "400":
+          description: 입력값 오류 / 카카오 사용자 비밀번호 변경 / 현재 비밀번호 불일치
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "401":
+          description: 인증 토큰 없음 또는 만료
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "인증이 만료되었습니다. 다시 로그인해주세요."
+        "409":
+          description: 이미 사용 중인 닉네임
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "DUPLICATE_NICKNAME"
+                  message: "이미 사용 중인 닉네임입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/users/me/image:
+    patch:
+      tags: [Users]
+      summary: 프로필 이미지 변경
+      description: |
+        본인 프로필 이미지를 즉시 업로드하여 변경합니다.
+        jpg, jpeg, png 파일만 허용합니다.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: 프로필 이미지 파일 (jpg/jpeg/png)
+      responses:
+        "200":
+          description: 프로필 이미지 변경 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  nickname: "푸디보이"
+                  profileImage: "https://example.com/new-profile.jpg"
+                  email: "foodie@kakao.com"
+                  provider: "KAKAO"
+                  createdAt: "2026-06-20T10:00:00"
+                  isOwnProfile: true
+                  isFollowing: false
+        "400":
+          description: 이미지 누락 / 허용되지 않는 확장자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "jpg, jpeg, png 파일만 업로드 가능합니다."
+        "401":
+          description: 인증 토큰 없음 또는 만료
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "인증이 만료되었습니다. 다시 로그인해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Follow
+  # ─────────────────────────────────────────────
+  /api/v1/users/{id}/follow:
+    post:
+      tags: [Follow]
+      summary: 팔로우
+      description: 특정 사용자를 팔로우합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 팔로우할 사용자 ID
+          schema:
+            type: integer
+            example: 2
+      responses:
+        "200":
+          description: 팔로우 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  followId: 99
+                  followerId: 1
+                  followingId: 2
+                  createdAt: "2026-06-18T18:00:00"
+        "400":
+          description: 자기 자신 팔로우 시도 (SELF_FOLLOW_NOT_ALLOWED)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "SELF_FOLLOW_NOT_ALLOWED"
+                  message: "자기 자신을 팔로우할 수 없습니다."
+        "404":
+          description: 존재하지 않는 유저 (USER_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "USER_NOT_FOUND"
+                  message: "존재하지 않는 사용자입니다."
+        "409":
+          description: 이미 팔로우 중 (ALREADY_FOLLOWING)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "ALREADY_FOLLOWING"
+                  message: "이미 팔로우 중인 사용자입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    delete:
+      tags: [Follow]
+      summary: 언팔로우
+      description: 특정 사용자의 팔로우를 취소합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 언팔로우할 사용자 ID
+          schema:
+            type: integer
+            example: 2
+      responses:
+        "200":
+          description: 언팔로우 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "404":
+          description: 팔로우 관계가 존재하지 않음 (FOLLOW_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FOLLOW_NOT_FOUND"
+                  message: "팔로우 관계가 존재하지 않습니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/users/{id}/followings:
+    get:
+      tags: [Follow]
+      summary: 팔로잉 목록 조회
+      description: 특정 사용자가 팔로우하는 목록을 페이지네이션으로 조회합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 ID
+          schema:
+            type: integer
+            example: 1
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 20)
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 팔로잉 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  followings:
+                    - userId: 2
+                      nickname: "서교동김푸디"
+                      profileImage: "https://k.kakaocdn.net/.../profile2.jpg"
+                      isFollowedByMe: true
+                  totalPages: 1
+                  totalElements: 3
+        "400":
+          description: userId 형식 오류 또는 page/size가 0 이하 (INVALID_INPUT_VALUE / INVALID_PAGE_SIZE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "404":
+          description: 존재하지 않는 유저 (USER_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "USER_NOT_FOUND"
+                  message: "존재하지 않는 사용자입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/users/{id}/followers:
+    get:
+      tags: [Follow]
+      summary: 팔로워 목록 조회
+      description: 특정 사용자를 팔로우하는 목록을 페이지네이션으로 조회합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 사용자 ID
+          schema:
+            type: integer
+            example: 1
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 20)
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 팔로워 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  followers:
+                    - userId: 3
+                      nickname: "망원동고독가"
+                      profileImage: "https://k.kakaocdn.net/.../profile3.jpg"
+                      isFollowedByMe: false
+                  totalPages: 1
+                  totalElements: 5
+        "400":
+          description: userId 형식 오류 또는 page/size가 0 이하 (INVALID_INPUT_VALUE / INVALID_PAGE_SIZE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "404":
+          description: 존재하지 않는 유저 (USER_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "USER_NOT_FOUND"
+                  message: "존재하지 않는 사용자입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Restaurantsdd
+  # ─────────────────────────────────────────────
+  /api/v1/restaurants/search:
+    get:
+      tags: [Restaurants]
+      summary: 식당 검색 (카카오맵 API 연동)
+      description: 키워드로 식당을 검색합니다. 인증 불필요.
+      security: []
+      parameters:
+        - name: query
+          in: query
+          required: true
+          description: 검색 키워드 (예 - 을지로 삼겹살)
+          schema:
+            type: string
+            example: "을지로 삼겹살"
+        - name: x
+          in: query
+          required: false
+          description: 경도 (Longitude)
+          schema:
+            type: number
+            format: double
+            example: 126.9780
+        - name: "y"
+          in: query
+          required: false
+          description: 위도 (Latitude)
+          schema:
+            type: number
+            format: double
+            example: 37.5665
+        - name: radius
+          in: query
+          required: false
+          description: 반경 미터 단위 (최대 20000)
+          schema:
+            type: integer
+            maximum: 20000
+            example: 1000
+      responses:
+        "200":
+          description: 식당 검색 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  restaurants:
+                    - id: 1
+                      kakaoPlaceId: "12345678"
+                      name: "을지삼겹"
+                      category: "한식"
+                      address: "서울 중구 을지로3가 12-3"
+                      roadAddress: "서울 중구 을지로 123길 4"
+                      region1: "서울"
+                      region2: "중구"
+                      region3: "을지로3가"
+                      phone: "02-123-4567"
+                      lat: 37.5665
+                      lng: 126.9780
+        "400":
+          description: 필수 파라미터 query 누락 또는 radius 20000 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_REQUEST"
+                  message: "검색어(query)는 필수입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+        "502":
+          description: 카카오맵 API 통신 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "BAD_GATEWAY"
+                  message: "카카오맵 서비스와의 통신에 실패했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/restaurants/recommend:
+    get:
+      tags: [Restaurants]
+      summary: 조건 필터 기반 맛집 추천
+      description: 현재 위치와 조건을 기반으로 맛집을 추천합니다. 인증 불필요.
+      security: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          description: 현재 위치 위도 (-90 ~ 90)
+          schema:
+            type: number
+            format: double
+            example: 37.5665
+        - name: lng
+          in: query
+          required: true
+          description: 현재 위치 경도 (-180 ~ 180)
+          schema:
+            type: number
+            format: double
+            example: 126.9780
+        - name: category
+          in: query
+          required: false
+          description: 음식 카테고리
+          schema:
+            type: string
+            enum: ["한식", "일식", "양식", "중식"]
+            example: "한식"
+        - name: mood
+          in: query
+          required: false
+          description: 분위기 태그
+          schema:
+            type: string
+            enum: ["데이트", "혼밥", "회식", "야식"]
+            example: "데이트"
+        - name: sort
+          in: query
+          required: true
+          description: 정렬 방식
+          schema:
+            type: string
+            enum: ["RANDOM", "RATING", "DISTANCE"]
+            example: "RATING"
+      responses:
+        "200":
+          description: 맛집 추천 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  recommendations:
+                    - restaurantId: 1
+                      name: "을지삼겹"
+                      category: "한식"
+                      distanceMeter: 120
+                      lat: 37.5665
+                      lng: 126.9780
+        "400":
+          description: 필수 파라미터 누락 / 좌표 범위 초과 / sort 값 오류 (MISSING_REQUIRED_PARAM / INVALID_COORDINATES / INVALID_SORT_VALUE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "MISSING_REQUIRED_PARAM"
+                  message: "필수 파라미터(lat, lng, sort)가 누락되었습니다."
+        "404":
+          description: 조건에 맞는 식당 없음 (NO_RECOMMENDATIONS_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "NO_RECOMMENDATIONS_FOUND"
+                  message: "조건에 맞는 맛집을 찾을 수 없습니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/restaurants/{id}:
+    get:
+      tags: [Restaurants]
+      summary: 식당 상세 조회
+      description: 식당 ID로 식당 상세 정보를 조회합니다.
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 조회할 식당 ID
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: 식당 상세 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 1
+                  kakaoPlaceId: "12345678"
+                  name: "을지삼겹"
+                  category: "한식"
+                  address: "서울 중구 을지로3가 12-3"
+                  roadAddress: "서울 중구 을지로 123길 4"
+                  region1: "서울"
+                  region2: "중구"
+                  region3: "을지로3가"
+                  phone: "02-123-4567"
+                  lat: 37.5665
+                  lng: 126.9780
+                  createdAt: "2026-06-18T17:00:00"
+        "404":
+          description: 존재하지 않는 식당 (RESTAURANT_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "RESTAURANT_NOT_FOUND"
+                  message: "존재하지 않는 식당입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Feeds
+  # ─────────────────────────────────────────────
+  /api/v1/feeds:
+    post:
+      tags: [Feeds]
+      summary: 피드 글 작성
+      description: 새로운 피드 글을 작성합니다.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [feed]
+              properties:
+                feed:
+                  type: object
+                  required: [content, restaurantId]
+                  properties:
+                    content:
+                      type: string
+                      maxLength: 1000
+                      example: "오늘 을지로 삼겹살 먹었는데 대박이야!"
+                    restaurantId:
+                      type: integer
+                      example: 1
+                image:
+                  type: string
+                  format: binary
+                  description: 피드 이미지 파일 (jpg/jpeg/png, 선택)
+      responses:
+        "201":
+          description: 글 작성 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feedId: 45
+                  content: "오늘 을지로 삼겹살 먹었는데 대박이야!"
+                  nickname: "푸디보이"
+                  profileImage: "https://k.kakaocdn.net/.../img.jpg"
+                  likeCount: 0
+                  createdAt: "2026-06-18T17:50:00"
+                  updatedAt: "2026-06-18T17:50:00"
+                  restaurantId: 1
+                  restaurantName: "을지삼겹"
+                message: "피드가 생성되었습니다."
+        "400":
+          description: content 없음 또는 1000자 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "내용을 입력해주세요. (최대 1000자)"
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "404":
+          description: 존재하지 않는 식당 (RESTAURANT_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "RESTAURANT_NOT_FOUND"
+                  message: "존재하지 않는 식당입니다."
+        "500":
+          description: 저장 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    get:
+      tags: [Feeds]
+      summary: 피드 글 목록 조회
+      description: |
+        피드 글 목록을 조회합니다.
+
+        **용례:**
+        - `GET /api/v1/feeds?restaurantId=1` → 특정 식당 태그된 글들 (식당 페이지)
+        - `GET /api/v1/feeds?userId=2` → 특정 유저의 글 (프로필 페이지)
+        - `GET /api/v1/feeds` → 전체 공개 글 (탐색)
+      parameters:
+        - name: restaurantId
+          in: query
+          required: false
+          description: 특정 식당 태그 글만 필터링
+          schema:
+            type: integer
+            example: 1
+        - name: userId
+          in: query
+          required: false
+          description: 특정 유저의 글만 필터링
+          schema:
+            type: integer
+            example: 1
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 10)
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 글 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feeds:
+                    - feedId: 45
+                      content: "오늘 을지로 삼겹살 먹었는데 대박이야!"
+                      userId: 1
+                      nickname: "푸디보이"
+                      profileImage: "https://k.kakaocdn.net/.../img.jpg"
+                      likeCount: 12
+                      commentCount: 4
+                      isLikedByMe: true
+                      restaurantId: 1
+                      restaurantName: "을지삼겹"
+                      createdAt: "2026-06-18T17:50:00"
+                  totalPages: 3
+                  totalElements: 25
+                  page: 0
+                  size: 10
+        "400":
+          description: restaurantId/userId 형식 오류 또는 page/size가 0 이하 (INVALID_INPUT_VALUE / INVALID_PAGE_SIZE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/feeds/following:
+    get:
+      tags: [Feeds]
+      summary: 팔로잉 피드 목록 조회
+      description: 내가 팔로우한 사용자들의 피드 글 목록을 최신순으로 조회합니다. 로그인 필요.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 10)
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 팔로잉 피드 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feeds:
+                    - feedId: 45
+                      content: "오늘 을지로 삼겹살 먹었는데 대박이야!"
+                      userId: 2
+                      nickname: "서교동김푸디"
+                      profileImage: "https://k.kakaocdn.net/.../profile2.jpg"
+                      likeCount: 12
+                      commentCount: 4
+                      isLikedByMe: false
+                      restaurantId: 1
+                      restaurantName: "을지삼겹"
+                      createdAt: "2026-06-18T17:50:00"
+                  totalPages: 3
+                  totalElements: 25
+                  page: 0
+                  size: 10
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/feeds/recommend:
+    get:
+      tags: [Feeds]
+      summary: 추천 피드 목록 조회
+      description: 팔로우하지 않은 사용자의 피드 중 랜덤으로 추천 피드 목록을 조회합니다. 로그인 필요.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 10)
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 추천 피드 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feeds:
+                    - feedId: 88
+                      content: "망원동 숨집 발견! 분위기 미쳤다"
+                      userId: 3
+                      nickname: "망원동고독가"
+                      profileImage: "https://k.kakaocdn.net/.../profile3.jpg"
+                      likeCount: 5
+                      commentCount: 2
+                      restaurantId: 5
+                      restaurantName: "망원동숨집"
+                      createdAt: "2026-06-19T12:30:00"
+                  totalPages: 5
+                  totalElements: 48
+                  page: 0
+                  size: 10
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/feeds/{id}:
+    put:
+      tags: [Feeds]
+      summary: 피드 글 수정
+      description: 피드 글을 수정합니다. 본인만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [feed]
+              properties:
+                feed:
+                  type: object
+                  required: [content, restaurantId]
+                  properties:
+                    content:
+                      type: string
+                      maxLength: 1000
+                      example: "재방문했는데 여전히 맛있네요. 강력 추천합니다."
+                    restaurantId:
+                      type: integer
+                      example: 2
+                image:
+                  type: string
+                  format: binary
+                  description: 피드 이미지 파일 (jpg/jpeg/png, 선택)
+      responses:
+        "200":
+          description: 글 수정 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feedId: 45
+                  content: "재방문했는데 여전히 맛있네요. 강력 추천합니다."
+                  nickname: "푸디보이"
+                  profileImage: "https://k.kakaocdn.net/.../img.jpg"
+                  likeCount: 12
+                  createdAt: "2026-06-18T17:50:00"
+                  updatedAt: "2026-06-18T18:10:00"
+                  restaurantId: 2
+                  restaurantName: "망원동숨집"
+                message: "피드가 수정되었습니다."
+        "400":
+          description: content 1000자 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "내용은 1000자를 초과할 수 없습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 타인 글 수정 시도 (FORBIDDEN_FEED_UPDATE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN_FEED_UPDATE"
+                  message: "본인의 글만 수정할 수 있습니다."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    delete:
+      tags: [Feeds]
+      summary: 피드 글 삭제
+      description: 피드 글을 삭제합니다. 본인만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+      responses:
+        "200":
+          description: 글 삭제 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "글이 성공적으로 삭제되었습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 타인 글 삭제 시도 (FORBIDDEN_FEED_DELETE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN_FEED_DELETE"
+                  message: "본인의 글만 삭제할 수 있습니다."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/feeds/{id}/like:
+    post:
+      tags: [Feeds]
+      summary: 좋아요
+      description: 피드 글에 좋아요를 누릅니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+      responses:
+        "201":
+          description: 좋아요 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feedId: 45
+                  likeCount: 13
+                  isLikedByMe: true
+                message: "좋아요를 눌렀습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "409":
+          description: 이미 좋아요 누름 (ALREADY_LIKED)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "ALREADY_LIKED"
+                  message: "이미 좋아요를 누른 게시글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    delete:
+      tags: [Feeds]
+      summary: 좋아요 취소
+      description: 피드 글의 좋아요를 취소합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+      responses:
+        "200":
+          description: 좋아요 취소 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  feedId: 45
+                  likeCount: 12
+                  isLikedByMe: false
+                message: "좋아요를 취소했습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 본인 좋아요가 아님
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN"
+                  message: "본인의 좋아요만 취소할 수 있습니다."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Comments
+  # ─────────────────────────────────────────────
+  /api/v1/feeds/{id}/comments:
+    post:
+      tags: [Comments]
+      summary: 댓글 작성
+      description: 피드 글에 댓글을 작성합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content]
+              properties:
+                content:
+                  type: string
+                  maxLength: 500
+                  example: "저도 여기 자주 가요! 냉면도 맛있어요."
+      responses:
+        "201":
+          description: 댓글 작성 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  commentId: 101
+                  feedId: 45
+                  userId: 2
+                  nickname: "서교동김푸디"
+                  profileImage: "https://k.kakaocdn.net/.../profile2.jpg"
+                  content: "저도 여기 자주 가요! 냉면도 맛있어요."
+                  createdAt: "2026-06-18T18:10:00"
+                message: "댓글이 작성되었습니다."
+        "400":
+          description: content 없음 또는 500자 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "댓글 내용을 입력해주세요. (최대 500자)"
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "500":
+          description: 저장 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    get:
+      tags: [Comments]
+      summary: 댓글 목록 조회
+      description: 피드 글의 댓글 목록을 페이지네이션으로 조회합니다. 댓글이 없으면 빈 배열을 반환합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 20)
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 댓글 목록 조회 성공 (댓글 없을 시 빈 배열 반환)
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  comments:
+                    - commentId: 101
+                      userId: 2
+                      nickname: "서교동김푸디"
+                      profileImage: "https://k.kakaocdn.net/.../profile2.jpg"
+                      content: "저도 여기 자주 가요! 냉면도 맛있어요."
+                      createdAt: "2026-06-18T18:10:00"
+                  totalPages: 1
+                  totalElements: 3
+        "400":
+          description: page/size가 0 이하 (INVALID_PAGE_SIZE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_PAGE_SIZE"
+                  message: "페이지 번호와 크기는 0보다 커야 합니다."
+        "404":
+          description: 존재하지 않는 글 (FEED_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FEED_NOT_FOUND"
+                  message: "존재하지 않는 게시글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/feeds/{id}/comments/{commentId}:
+    delete:
+      tags: [Comments]
+      summary: 댓글 삭제
+      description: 댓글을 삭제합니다. 본인만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 글 ID
+          schema:
+            type: integer
+            example: 45
+        - name: commentId
+          in: path
+          required: true
+          description: 댓글 ID
+          schema:
+            type: integer
+            example: 101
+      responses:
+        "200":
+          description: 댓글 삭제 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "댓글이 삭제되었습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 타인 댓글 삭제 시도 (FORBIDDEN_COMMENT_DELETE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN_COMMENT_DELETE"
+                  message: "본인의 댓글만 삭제할 수 있습니다."
+        "404":
+          description: 존재하지 않는 댓글 (COMMENT_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "COMMENT_NOT_FOUND"
+                  message: "존재하지 않는 댓글입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  # ─────────────────────────────────────────────
+  # Restaurant Lists
+  # ─────────────────────────────────────────────
+  /api/v1/lists:
+    post:
+      tags: [Lists]
+      summary: 맛집 리스트 생성
+      description: 새로운 맛집 리스트를 생성합니다.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title:
+                  type: string
+                  maxLength: 200
+                  example: "을지로 감성 데이트 코스"
+                description:
+                  type: string
+                  maxLength: 500
+                  example: "좁은 골목길 숨겨진 보석 같은 감성 맛집 모음집"
+                moodTag:
+                  type: string
+                  enum: ["데이트", "혼밥", "회식", "야식"]
+                  example: "데이트"
+      responses:
+        "201":
+          description: 맛집 리스트 생성 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  listId: 10
+                  userId: 1
+                  title: "을지로 감성 데이트 코스"
+                  description: "좁은 골목길 숨겨진 보석 같은 감성 맛집 모음집"
+                  moodTag: "데이트"
+                  createdAt: "2026-06-18T17:52:00"
+                message: "맛집 리스트가 성공적으로 생성되었습니다."
+        "400":
+          description: title 비어있음 / 길이 초과 / moodTag 허용값 아님 (INVALID_MOOD_TAG)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_MOOD_TAG"
+                  message: "허용되지 않는 분위기 태그입니다. (데이트 / 혼밥 / 회식 / 야식)"
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "500":
+          description: 리스트 저장 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    get:
+      tags: [Lists]
+      summary: 맛집 리스트 검색/목록 조회
+      description: 맛집 리스트를 검색하거나 목록을 조회합니다.
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: 검색어 (제목 + 설명)
+          schema:
+            type: string
+            example: "을지로"
+        - name: mood
+          in: query
+          required: false
+          description: 분위기 태그 필터
+          schema:
+            type: string
+            enum: ["데이트", "혼밥", "회식", "야식"]
+            example: "데이트"
+        - name: userId
+          in: query
+          required: false
+          description: 특정 유저 리스트만 조회
+          schema:
+            type: integer
+            example: 1
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 10)
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: 맛집 리스트 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  lists:
+                    - listId: 10
+                      userId: 1
+                      nickname: "푸디보이"
+                      title: "을지로 감성 데이트 코스"
+                      moodTag: "데이트"
+                      itemCount: 3
+                      createdAt: "2026-06-18T17:52:00"
+                  totalPages: 5
+                  totalElements: 42
+        "400":
+          description: userId 형식 오류 또는 page/size가 0 이하 (INVALID_INPUT_VALUE / INVALID_PAGE_SIZE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/lists/{id}:
+    get:
+      tags: [Lists]
+      summary: 맛집 리스트 상세 조회 (아이템 포함)
+      description: 특정 맛집 리스트의 상세 정보와 아이템 목록을 조회합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 리스트 ID
+          schema:
+            type: integer
+            example: 10
+      responses:
+        "200":
+          description: 리스트 상세 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  listId: 10
+                  userId: 1
+                  creatorNickname: "푸디보이"
+                  title: "을지로 감성 데이트 코스"
+                  description: "좁은 골목길 숨겨진 보석 같은 감성 맛집 모음집"
+                  moodTag: "데이트"
+                  items:
+                    - itemId: 30
+                      restaurantId: 1
+                      restaurantName: "을지삼겹"
+                      category: "한식"
+                      orderIndex: 1
+                      memo: "삼겹살에 미나리 조합은 이길 수가 없음"
+                      createdAt: "2026-06-18T17:53:00"
+                  createdAt: "2026-06-18T17:52:00"
+        "400":
+          description: listId 형식 오류 (INVALID_INPUT_VALUE)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "입력값이 올바르지 않습니다."
+        "404":
+          description: 존재하지 않는 리스트 (LIST_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "LIST_NOT_FOUND"
+                  message: "존재하지 않는 맛집 리스트입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/lists/{id}/items:
+    post:
+      tags: [Lists]
+      summary: 리스트에 식당 추가
+      description: 맛집 리스트에 식당을 추가합니다. 본인만 가능합니다. 리스트당 최대 5,000개까지 등록 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 리스트 ID
+          schema:
+            type: integer
+            example: 10
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [restaurantId]
+              properties:
+                restaurantId:
+                  type: integer
+                  example: 1
+                memo:
+                  type: string
+                  maxLength: 200
+                  example: "삼겹살에 미나리 조합은 이길 수가 없음"
+      responses:
+        "201":
+          description: 식당 추가 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  itemId: 30
+                  listId: 10
+                  restaurantId: 1
+                  restaurantName: "을지삼겹"
+                  memo: "삼겹살에 미나리 조합은 이길 수가 없음"
+                message: "리스트에 식당이 추가되었습니다."
+        "400":
+          description: restaurantId 없음 / memo 200자 초과 / 아이템 5000개 초과 (LIST_ITEM_LIMIT_EXCEEDED)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "LIST_ITEM_LIMIT_EXCEEDED"
+                  message: "리스트에 추가할 수 있는 식당은 최대 5,000개입니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 리스트 작성자가 아님
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN"
+                  message: "리스트 작성자만 식당을 추가할 수 있습니다."
+        "404":
+          description: 리스트 또는 식당이 존재하지 않음 (LIST_NOT_FOUND / RESTAURANT_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "LIST_NOT_FOUND"
+                  message: "존재하지 않는 맛집 리스트입니다."
+        "409":
+          description: 이미 해당 리스트에 같은 식당 존재 (DUPLICATE_LIST_ITEM)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "DUPLICATE_LIST_ITEM"
+                  message: "이미 리스트에 추가된 식당입니다."
+        "500":
+          description: 리스트 아이템 저장 실패
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/lists/{id}/items/{itemId}:
+    put:
+      tags: [Lists]
+      summary: 리스트 내 식당 정보 수정 (순서/메모)
+      description: 리스트 내 식당 아이템의 순서나 메모를 수정합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 리스트 ID
+          schema:
+            type: integer
+            example: 10
+        - name: itemId
+          in: path
+          required: true
+          description: 아이템 ID
+          schema:
+            type: integer
+            example: 30
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                orderIndex:
+                  type: integer
+                  example: 2
+                memo:
+                  type: string
+                  maxLength: 200
+                  example: "여기 볶음밥도 필수 코스입니다."
+      responses:
+        "200":
+          description: 아이템 수정 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  itemId: 30
+                  orderIndex: 2
+                  memo: "여기 볶음밥도 필수 코스입니다."
+                message: "리스트 아이템 정보가 변경되었습니다."
+        "400":
+          description: memo 200자 초과
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INVALID_INPUT_VALUE"
+                  message: "메모는 200자를 초과할 수 없습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 리스트 작성자가 아님
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN"
+                  message: "리스트 작성자만 수정할 수 있습니다."
+        "404":
+          description: 존재하지 않는 아이템 (LIST_ITEM_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "LIST_ITEM_NOT_FOUND"
+                  message: "존재하지 않는 리스트 아이템입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+    delete:
+      tags: [Lists]
+      summary: 리스트에서 식당 제외
+      description: 리스트에서 식당 아이템을 제외합니다. 본인만 가능합니다.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 리스트 ID
+          schema:
+            type: integer
+            example: 10
+        - name: itemId
+          in: path
+          required: true
+          description: 아이템 ID
+          schema:
+            type: integer
+            example: 30
+      responses:
+        "200":
+          description: 식당 제외 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data: null
+                message: "리스트에서 식당이 제외되었습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "403":
+          description: 리스트 작성자가 아님
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "FORBIDDEN"
+                  message: "리스트 작성자만 삭제할 수 있습니다."
+        "404":
+          description: 존재하지 않는 아이템 (LIST_ITEM_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "LIST_ITEM_NOT_FOUND"
+                  message: "존재하지 않는 리스트 아이템입니다."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+  /api/v1/notifications:
+    get:
+      tags: [Notifications]
+      summary: 알림 목록 조회
+      description: 로그인한 사용자가 받은 알림 목록을 최신순으로 조회합니다. 로그인 필요.
+      parameters:
+        - name: page
+          in: query
+          required: false
+          description: 페이지 번호 (기본값 0)
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          required: false
+          description: 페이지 크기 (기본값 20)
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: 알림 목록 조회 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  - id: 100
+                    actorId: 2
+                    actorNickname: "서교동김푸디"
+                    feedId: 45
+                    type: "NEW_FEED"
+                    message: "서교동김푸디님이 새 글을 작성했습니다."
+                    isRead: false
+                    createdAt: "2026-06-18T17:50:00"
+                message: "알림 목록 조회가 완료되었습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."
+
+  /api/v1/notifications/{id}/read:
+    put:
+      tags: [Notifications]
+      summary: 알림 읽음 처리
+      description: 알림을 읽음 상태로 변경합니다. 본인에게 온 알림만 처리할 수 있습니다. 로그인 필요.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: 알림 ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: 알림 읽음 처리 성공
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  id: 100
+                  actorId: 2
+                  actorNickname: "서교동김푸디"
+                  feedId: 45
+                  type: "NEW_FEED"
+                  message: "서교동김푸디님이 새 글을 작성했습니다."
+                  isRead: true
+                  createdAt: "2026-06-18T17:50:00"
+                message: "알림을 읽음 처리했습니다."
+        "401":
+          description: 로그인하지 않은 사용자
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "UNAUTHORIZED"
+                  message: "로그인 후 이용해주세요."
+        "404":
+          description: 존재하지 않는 알림 (NOTIFICATION_NOT_FOUND)
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "NOTIFICATION_NOT_FOUND"
+                  message: "알림을 찾을 수 없습니다: 999"
+        "500":
+          description: 서버 오류
+          content:
+            application/json:
+              example:
+                success: false
+                data: null
+                error:
+                  code: "INTERNAL_SERVER_ERROR"
+                  message: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요."

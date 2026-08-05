@@ -10,6 +10,12 @@ RUN chmod +x gradlew
 
 COPY src src
 
+# application.yaml is intentionally ignored by Git; use the tracked template
+# when building from a clean clone and override production values via env vars.
+RUN if [ ! -f src/main/resources/application.yaml ]; then \
+      cp src/main/resources/application.yaml.example src/main/resources/application.yaml; \
+    fi
+
 RUN ./gradlew bootJar -x test --no-daemon
 
 FROM eclipse-temurin:24-jre

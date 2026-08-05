@@ -1,0 +1,3 @@
+api.whattoeats.app {
+    reverse_proxy backend:8081
+}

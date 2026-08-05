@@ -814,6 +814,7 @@ function SearchPage() {
       const kakaoMap = new window.kakao.maps.Map(mapRef.current, {
         center: new window.kakao.maps.LatLng(36.5, 127.8),
         level: 13,
+        draggable: true,
       }) as KakaoMap;
 
       setMap(kakaoMap);
@@ -2470,7 +2471,7 @@ function SearchPage() {
     >
       <div className="search-map-viewport relative h-[calc(100dvh-10.5rem)] min-h-0 overflow-hidden rounded-2xl border border-hairline-soft lg:h-[calc(100vh-6.5rem)]">
         {/* 지도 */}
-        <div ref={mapRef} className="absolute inset-0 bg-surface-strong" />
+        <div ref={mapRef} className="absolute inset-0 touch-none bg-surface-strong" />
 
         {/* 이 지역 다시 검색 — 데스크톱: 패널 오른쪽, 모바일: 검색창 아래 중앙 */}
         {showResearchButton && (

@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.*
 import org.mockito.BDDMockito.given
+import org.mockito.BDDMockito.willThrow
 import org.mockito.junit.jupiter.MockitoExtension
 import org.springframework.data.redis.core.RedisTemplate
 import org.springframework.data.redis.core.ValueOperations
@@ -283,13 +284,60 @@ internal class AuthServiceTest {
         val token = "valid.jwt.token"
         val remaining = 3600000L
 
-        given(jwtUtil.getRemainingExpiration(token)).willReturn(remaining)
+        given(jwtUtil.getTokenInfo(token)).willReturn(JwtUtil.TokenInfo(1L, remaining))
         given(redisTemplate.opsForValue()).willReturn(valueOperations)
 
-        authService.logout(token)
+        authService.logout(token, null)
 
         Mockito.verify(valueOperations, Mockito.times(1))
             .set("blacklist:" + token, "logout", remaining, TimeUnit.MILLISECONDS)
+    }
+
+    @Test
+    @DisplayName("로그아웃 시 저장된 refreshToken도 함께 무효화")
+    fun logoutRemovesRefreshToken() {
+        val token = "valid.jwt.token"
+        val userId = 1L
+        val remaining = 3600000L
+
+        given(jwtUtil.getTokenInfo(token)).willReturn(JwtUtil.TokenInfo(userId, remaining))
+        given(redisTemplate.opsForValue()).willReturn(valueOperations)
+
+        authService.logout(token, null)
+
+        Mockito.verify(redisTemplate, Mockito.times(1)).delete("refresh:$userId")
+    }
+
+    @Test
+    @DisplayName("accessToken 쿠키가 만료되어 없어도 refreshToken으로 Redis 값을 무효화")
+    fun logoutWithoutAccessTokenUsesRefreshToken() {
+        val refreshToken = "valid.refresh.token"
+        val userId = 1L
+
+        given(jwtUtil.getUserId(refreshToken)).willReturn(userId)
+
+        authService.logout(null, refreshToken)
+
+        Mockito.verify(redisTemplate, Mockito.times(1)).delete("refresh:$userId")
+        // accessToken이 없으므로 파싱 시도 자체가 없어야 한다.
+        Mockito.verify(jwtUtil, Mockito.never()).getTokenInfo(org.mockito.ArgumentMatchers.anyString())
+    }
+
+    @Test
+    @DisplayName("accessToken 파싱이 실패해도(만료/위변조) refreshToken으로 폴백해 Redis 값을 무효화")
+    fun logoutFallsBackToRefreshTokenWhenAccessTokenParsingFails() {
+        val accessToken = "corrupted.access.token"
+        val refreshToken = "valid.refresh.token"
+        val userId = 1L
+
+        given(jwtUtil.getTokenInfo(accessToken)).willThrow(JwtException("invalid token"))
+        given(jwtUtil.getUserId(refreshToken)).willReturn(userId)
+
+        authService.logout(accessToken, refreshToken)
+
+        Mockito.verify(redisTemplate, Mockito.times(1)).delete("refresh:$userId")
+        // accessToken 파싱이 실패했으니 블랙리스트 등록 시도는 없어야 한다.
+        Mockito.verify(redisTemplate, Mockito.never()).opsForValue()
     }
 
     @Test
@@ -297,10 +345,47 @@ internal class AuthServiceTest {
     fun logoutWithExpiredToken() {
         val token = "expired.jwt.token"
 
-        given(jwtUtil.getRemainingExpiration(token)).willReturn(-1L)
+        given(jwtUtil.getTokenInfo(token)).willReturn(JwtUtil.TokenInfo(1L, -1000L))
 
-        authService.logout(token)
+        authService.logout(token, null)
 
         Mockito.verify(redisTemplate, Mockito.never()).opsForValue()
+    }
+
+    @Test
+    @DisplayName("Redis 삭제 중 예외가 나도 로그아웃 자체는 실패하지 않음")
+    fun logoutSwallowsRedisDeleteFailure() {
+        val token = "valid.jwt.token"
+        val userId = 1L
+
+        given(jwtUtil.getTokenInfo(token)).willReturn(JwtUtil.TokenInfo(userId, 3600000L))
+        given(redisTemplate.opsForValue()).willReturn(valueOperations)
+        given(redisTemplate.delete("refresh:$userId")).willThrow(RuntimeException("redis down"))
+
+        assertThatCode { authService.logout(token, null) }.doesNotThrowAnyException()
+    }
+
+    @Test
+    @DisplayName("블랙리스트 등록(Redis set)이 실패해도 이미 얻은 userId로 refreshToken은 정상 무효화")
+    fun logoutStillInvalidatesRefreshTokenWhenBlacklistSetFails() {
+        val token = "valid.jwt.token"
+        val userId = 1L
+
+        given(jwtUtil.getTokenInfo(token)).willReturn(JwtUtil.TokenInfo(userId, 3600000L))
+        given(redisTemplate.opsForValue()).willReturn(valueOperations)
+        willThrow(RuntimeException("redis set failed"))
+            .given(valueOperations)
+            .set(
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyString(),
+                ArgumentMatchers.anyLong(),
+                ArgumentMatchers.any(TimeUnit::class.java),
+            )
+
+        authService.logout(token, null)
+
+        // 토큰 파싱은 이미 성공해 userId를 알고 있으므로, 블랙리스트 등록만 실패했다고
+        // refreshToken 무효화까지 함께 스킵되면 안 된다.
+        Mockito.verify(redisTemplate, Mockito.times(1)).delete("refresh:$userId")
     }
 }

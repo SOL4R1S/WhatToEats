@@ -127,10 +127,35 @@ class AuthService(
         return AuthResult(accessToken, refreshToken, AuthUserResponse.from(user))
     }
 
-    fun logout(token: String) {
-        val remaining = jwtUtil.getRemainingExpiration(token)
-        if (remaining > 0) {
-            redisTemplate.opsForValue().set("blacklist:${token}", "logout", remaining, TimeUnit.MILLISECONDS)
+    // accessToken(1시간)은 refreshToken(7일)보다 먼저 만료돼 쿠키가 사라질 수 있으므로,
+    // accessToken이 없어도 refreshToken만으로 로그아웃 처리가 가능해야 한다. 안 그러면
+    // 로그인 후 1시간이 지나서 로그아웃할 때 accessToken 블랙리스트 등록만 건너뛰고
+    // refreshToken 무효화까지 통째로 생략돼, 탈취된 refreshToken이 /reissue에 계속
+    // 쓰일 수 있다. 토큰 파싱/Redis 처리 중 어느 단계가 실패해도(만료/위변조된 토큰,
+    // Redis 장애 등) 예외를 밖으로 던지지 않고 로그아웃 자체는 항상 성공 처리한다.
+    fun logout(accessToken: String?, refreshToken: String?) {
+        // accessToken은 블랙리스트 등록과 userId 추출에 모두 필요하므로, JwtUtil.getTokenInfo로
+        // 한 번만 파싱해서 재사용한다(getRemainingExpiration/getUserId를 따로 부르면 같은
+        // 토큰을 두 번 파싱하게 된다). 단, userId 추출(파싱)과 블랙리스트 등록(Redis I/O)은
+        // 실패 도메인이 다르므로 하나의 runCatching으로 묶지 않는다 - 묶으면 파싱엔 성공해서
+        // 이미 알아낸 userId가 있는데도, 블랙리스트 등록만 실패해도 그 userId까지 함께
+        // 버려져서 정작 이 메서드가 보장하려는 refreshToken 무효화가 스킵될 수 있다.
+        val info = accessToken?.takeIf { it.isNotBlank() }?.let { token ->
+            val parsed = runCatching { jwtUtil.getTokenInfo(token) }.getOrNull()
+            if (parsed != null && parsed.remainingMillis > 0) {
+                runCatching {
+                    redisTemplate.opsForValue().set("blacklist:${token}", "logout", parsed.remainingMillis, TimeUnit.MILLISECONDS)
+                }
+            }
+            parsed
+        }
+
+        val userId = info?.userId ?: resolveUserId(refreshToken)
+        if (userId != null) {
+            runCatching { redisTemplate.delete("refresh:${userId}") }
         }
     }
+
+    private fun resolveUserId(token: String?): Long? =
+        token?.takeIf { it.isNotBlank() }?.let { runCatching { jwtUtil.getUserId(it) }.getOrNull() }
 }

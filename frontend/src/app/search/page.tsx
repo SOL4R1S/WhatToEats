@@ -1960,6 +1960,7 @@ function SearchPage() {
   const fetchKeywordInCurrentMap = (
     keyword: string,
     category: string,
+    requestId = createSearchRequestId(),
   ): Promise<void> => {
     if (!map) {
       setError("지도를 불러오는 중입니다.");
@@ -1999,6 +2000,15 @@ function SearchPage() {
           status: string,
           pagination: KakaoPagination,
         ) => {
+          /**
+           * 이 검색보다 나중에 실행된 검색이 있으면
+           * 오래된 응답은 화면 상태를 변경하지 않음
+           */
+          if (!isLatestSearchRequest(requestId)) {
+            resolve();
+            return;
+          }
+
           /**
            * 현재 지도 키워드 검색의 페이지네이션 저장
            */
@@ -2232,11 +2242,16 @@ function SearchPage() {
    * 검색어 지우기
    */
   const handleClearQuery = () => {
+    // createSearchRequestId()로 진행 중인 요청의 콜백을 무효화하면, 그 콜백은
+    // isLatestSearchRequest 체크에서 곧바로 return해 자신의 setLoading(false)를
+    // 실행하지 못한다. 여기서 명시적으로 꺼주지 않으면 loading이 true로 멈춰서
+    // 검색/현재 위치 버튼이 계속 비활성 상태로 남는다.
     createSearchRequestId();
     setQuery("");
     setResults([]);
     setError("");
     setHoveredPlaceId(null);
+    setLoading(false);
     resetPagination();
   };
 

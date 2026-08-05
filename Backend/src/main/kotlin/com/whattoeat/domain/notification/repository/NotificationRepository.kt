@@ -62,4 +62,26 @@ interface NotificationRepository : JpaRepository<Notification, Long> {
         restaurantListId: Long,
         type: NotificationType
     ): Boolean
+
+    // 좋아요/팔로우/리스트 저장 취소 시 대응하는 알림을 지우는 용도. 호출부(FeedLikeService
+    // 등) 주석 참고.
+    fun deleteByReceiverIdAndActorIdAndFeedIdAndType(
+        receiverId: Long,
+        actorId: Long,
+        feedId: Long,
+        type: NotificationType
+    )
+
+    fun deleteByReceiverIdAndActorIdAndTypeAndFeedIsNullAndRestaurantListIsNull(
+        receiverId: Long,
+        actorId: Long,
+        type: NotificationType
+    )
+
+    fun deleteByReceiverIdAndActorIdAndRestaurantListIdAndType(
+        receiverId: Long,
+        actorId: Long,
+        restaurantListId: Long,
+        type: NotificationType
+    )
 }

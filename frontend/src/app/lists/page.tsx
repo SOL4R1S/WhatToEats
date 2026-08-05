@@ -272,8 +272,6 @@ function ListsPage() {
 
   const initialized = useRef(false);
 
-  const latestLocationRef = useRef(initialLocation);
-
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
 
   const detailPanelRef = useRef<HTMLDivElement | null>(null);
@@ -300,11 +298,6 @@ function ListsPage() {
   };
 
   useEffect(() => {
-    latestLocationRef.current = {
-      selectedId: initialSelectedId,
-      tab: initialTab,
-    };
-
     const syncFrame = window.requestAnimationFrame(() => {
       setActiveTab(initialTab);
       setSelectedId(initialSelectedId);
@@ -778,16 +771,7 @@ function ListsPage() {
     initialized.current = true;
 
     const load = async () => {
-      const my = await loadLists();
-      const latestLocation = latestLocationRef.current;
-
-      if (
-        latestLocation.selectedId === null &&
-        latestLocation.tab === "my" &&
-        my.length > 0
-      ) {
-        setSelectedId(my[0].id);
-      }
+      await loadLists();
 
       setLoading(false);
     };

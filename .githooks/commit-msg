@@ -1,14 +1,14 @@
 #!/bin/sh
 
 COMMIT_MSG=$(cat "$1")
-PATTERN="^(feat|fix|docs|style|refactor|test|chore): .+\(#[0-9]+\)$"
+PATTERN="^(feat|fix|docs|style|refactor|test|chore): .+$"
 
 if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
     echo ""
     echo "❌ 커밋 메시지 형식이 올바르지 않습니다."
     echo ""
-    echo "   올바른 형식: type: 기능명(#이슈번호)"
-    echo "   예시:        feat: 카카오 로그인 구현(#12)"
+    echo "   올바른 형식: type: 기능명"
+    echo "   예시:        feat: 카카오 로그인 구현"
     echo ""
     echo "   허용 type: feat | fix | docs | style | refactor | test | chore"
     echo ""

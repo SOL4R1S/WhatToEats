@@ -88,3 +88,4 @@ Backend/build/
 *.mov
 *.mp4
 *.avi
+/.env.production

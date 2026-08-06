@@ -18,7 +18,7 @@
 | Auth | JWT, OAuth2 (Kakao) |
 | External API | Kakao Place API |
 | API Docs | SpringDoc OpenAPI (Swagger) |
-| CI/CD | GitHub Actions → AWS EC2 |
+| CI/CD | GitHub Actions → OCI |
 
 ---
 

@@ -66,6 +66,11 @@ dependencies {
     // OpenAPI // Swagger
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.0.2")
 
+    // DB Migration (Spring Boot 4.x는 spring-boot-starter-flyway로 자동 구성 활성화)
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
+    // Flyway 12+: MySQL 모듈은 flyway-mysql (BOM 미관리 → 버전 명시)
+    implementation("org.flywaydb:flyway-mysql:12.4.0")
+
 }
 
 allOpen {

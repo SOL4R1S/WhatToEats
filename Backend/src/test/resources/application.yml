@@ -10,6 +10,9 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
+  flyway:
+    # 테스트는 H2 + create-drop 사용. V1의 MySQL 문법이 H2에서 실행되지 않도록 off.
+    enabled: false
   data:
     redis:
       host: localhost

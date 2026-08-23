@@ -18,7 +18,7 @@ RUN if [ ! -f src/main/resources/application.yaml ]; then \
 
 RUN ./gradlew bootJar -x test --no-daemon
 
-FROM eclipse-temurin:24-jre
+FROM eclipse-temurin:25-jre
 
 WORKDIR /app
 

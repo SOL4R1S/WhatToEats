@@ -5,6 +5,16 @@ if [ ! -f "./Backend/gradlew" ]; then
     exit 0
 fi
 
+# Java toolchain(25) 자동 감지: JAVA_HOME 미설정 시 Temurin 25 탐색
+if [ -z "$JAVA_HOME" ]; then
+    for CAND in /tmp/jdk-25* /usr/lib/jvm/java-25* /usr/lib/jvm/java-21*; do
+        if [ -x "$CAND/bin/java" ]; then
+            export JAVA_HOME="$CAND"
+            break
+        fi
+    done
+fi
+
 echo "🧪 전체 테스트 실행 중... (시간이 걸릴 수 있습니다)"
 echo ""
 

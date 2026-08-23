@@ -45,3 +45,6 @@ next-env.d.ts
 
 # 모바일 반응형 검증 스크린샷 산출물
 /mobile-shots/
+test-results
+playwright-report/
+test-results/

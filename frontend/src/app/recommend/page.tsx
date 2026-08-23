@@ -104,6 +104,8 @@ interface KakaoRestaurant {
   phone: string;
   lat: number;
   lng: number;
+  /** 카카오맵이 sort=distance로 계산해준 거리(미터) */
+  distanceMeter: number | null;
 }
 
 interface RecommendItem {
@@ -335,10 +337,12 @@ export default function RecommendPage() {
     return parts.join(" ");
   };
 
-  // 카카오 키워드 검색을 최대 3페이지(45건)까지 수집
+  // 카카오 키워드 검색을 최대 3페이지(45건)까지 수집.
+  // position이 있으면 x,y + sort=distance로 카카오가 거리 계산·정렬을 해준다.
   const searchKakaoPool = (
     keyword: string,
     groupCode: string,
+    position: { lat: number; lng: number } | null,
   ): Promise<KakaoRestaurant[]> => {
     return new Promise((resolve, reject) => {
       const maps = window.kakao?.maps;
@@ -349,6 +353,16 @@ export default function RecommendPage() {
 
       const services = maps.services;
       const all: KakaoRestaurant[] = [];
+
+      const searchOptions: Record<string, unknown> = {
+        category_group_code: groupCode,
+        size: 15,
+      };
+      if (position) {
+        searchOptions.x = position.lng; // 카카오는 x=경도
+        searchOptions.y = position.lat; // y=위도
+        searchOptions.sort = "distance"; // ★ 거리 계산·정렬은 카카오에 위임
+      }
 
       placesRef.current.keywordSearch(
         keyword,
@@ -370,6 +384,8 @@ export default function RecommendPage() {
                   phone: item.phone || "",
                   lat: Number(item.y),
                   lng: Number(item.x),
+                  // sort=distance 요청 시 카카오가 계산해주는 거리(미터)
+                  distanceMeter: item.distance ? Number(item.distance) : null,
                 };
               }),
             );
@@ -384,7 +400,7 @@ export default function RecommendPage() {
             reject(new Error("검색 결과를 불러오지 못했습니다."));
           }
         },
-        { category_group_code: groupCode, size: 15 },
+        searchOptions,
       );
     });
   };
@@ -439,7 +455,7 @@ export default function RecommendPage() {
     setDistanceFallback(false);
 
     try {
-      // 위치는 한 번만 요청 (거리순 폴 back 판단 + distanceMeter 계산에 공용)
+      // 위치는 한 번만 요청 (거리순 폴 back 판단 + 카카오 sort=distance에 공용)
       const position = await getCurrentPosition();
 
       let effectiveSort = sortBy;
@@ -457,10 +473,11 @@ export default function RecommendPage() {
         const keyword = buildSearchKeyword();
         const groupCode = selectedCategory === "카페" ? "CE7" : "FD6";
 
-        // mood 키워드를 포함해 검색하고, 결과가 없으면 mood 없이 재검색
-        let pool = await searchKakaoPool(`${keyword} ${selectedMood}`.trim(), groupCode);
+        // mood 키워드를 포함해 검색하고, 결과가 없으면 mood 없이 재검색.
+        // position이 있으면 카카오가 x,y 기준 거리순 정렬(sort=distance)을 해준다.
+        let pool = await searchKakaoPool(`${keyword} ${selectedMood}`.trim(), groupCode, position);
         if (pool.length === 0 && selectedMood) {
-          pool = await searchKakaoPool(keyword, groupCode);
+          pool = await searchKakaoPool(keyword, groupCode, position);
         }
 
         if (pool.length === 0) {
@@ -490,6 +507,8 @@ export default function RecommendPage() {
                 phone: r.phone,
                 lat: r.lat,
                 lng: r.lng,
+                // 카카오가 계산한 거리(미터). 서버는 이 값을 그대로 정렬에 사용한다.
+                distanceMeter: r.distanceMeter,
               })),
               category: selectedCategory !== "기타" ? categoryToEnum[selectedCategory] : null,
               mood: MOOD_TAGS.find((t) => t.label === selectedMood)?.value ?? null,

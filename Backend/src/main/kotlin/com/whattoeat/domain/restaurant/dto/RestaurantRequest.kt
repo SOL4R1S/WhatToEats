@@ -35,5 +35,7 @@ class RestaurantRequest {
         val lat: Double,
         @field:NotNull(message = "경도는 필수입니다.")
         val lng: Double,
+        // 카카오맵 JS SDK가 sort=distance로 계산해준 거리(미터). 서버에서 직접 계산하지 않는다.
+        val distanceMeter: Int? = null,
     )
 }

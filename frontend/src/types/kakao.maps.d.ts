@@ -29,6 +29,8 @@ declare global {
     phone: string;
     y: string;
     x: string;
+    /** sort=distance 요청 시 카카오가 계산해주는 거리(미터, 문자열) */
+    distance?: string;
   }
 
   interface KakaoPagination {

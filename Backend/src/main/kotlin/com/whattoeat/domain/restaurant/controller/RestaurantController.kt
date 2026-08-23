@@ -48,6 +48,25 @@ class RestaurantController(
         )
     }
 
+    // DB에 저장된 식당 검색 (이름/주소 부분일치 = LIKE 검색)
+    // 카카오 검색과 달리 "내가 저장한 식당"에서 찾는 기능
+    @GetMapping("/search")
+    fun searchByNameOrAddress(
+        @RequestParam(required = false) name: String?,
+        @RequestParam(required = false) address: String?,
+    ): RsData<List<RestaurantResponse.Recommend>> {
+        val results = when {
+            !name.isNullOrBlank() -> restaurantService.searchByName(name)
+            !address.isNullOrBlank() -> restaurantService.searchByAddress(address)
+            else -> restaurantService.findAll()
+        }
+
+        return RsData.success(
+            results.map { RestaurantResponse.Recommend(it) },
+            "저장된 식당 검색이 완료되었습니다."
+        )
+    }
+
     // 프론트에서 선택한 식당만 저장
     @PostMapping
     fun saveSelectedRestaurant(

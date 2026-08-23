@@ -10,7 +10,7 @@
 
 | 분류 | 기술 |
 |---|---|
-| Language | Kotlin 2.2.20 (JDK 24) |
+| Language | Kotlin 2.3.0 (JDK 25) |
 | Framework | Spring Boot 4.1.0 |
 | Database | MySQL 8 |
 | Cache / Messaging | Redis (Lettuce) |

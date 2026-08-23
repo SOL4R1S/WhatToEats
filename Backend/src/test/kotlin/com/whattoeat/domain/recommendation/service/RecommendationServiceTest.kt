@@ -42,7 +42,8 @@ class RecommendationServiceTest {
         kakaoId: String,
         categoryName: String,
         lat: Double = 37.5,
-        lng: Double = 127.0
+        lng: Double = 127.0,
+        distanceMeter: Int? = null
     ) = RestaurantRequest.FromKakao(
         kakaoPlaceId = kakaoId,
         name = "식당$kakaoId",
@@ -55,7 +56,8 @@ class RecommendationServiceTest {
         region4 = null,
         phone = null,
         lat = lat,
-        lng = lng
+        lng = lng,
+        distanceMeter = distanceMeter
     )
 
     private fun storedRestaurant(
@@ -171,12 +173,12 @@ class RecommendationServiceTest {
     }
 
     @Test
-    fun `DISTANCE - 거리 오름차순과 distanceMeter 계산`() {
+    fun `DISTANCE - 카카오가 계산한 distanceMeter 값으로 정렬`() {
         val result = recommendService.recommend(
             request(
                 listOf(
-                    candidate("far", "음식점 > 한식", lat = 37.51, lng = 127.01),
-                    candidate("near", "음식점 > 한식", lat = 37.5001, lng = 127.0001)
+                    candidate("far", "음식점 > 한식", distanceMeter = 5000),
+                    candidate("near", "음식점 > 한식", distanceMeter = 300)
                 ),
                 sort = RecommendSort.DISTANCE,
                 lat = 37.5,
@@ -184,17 +186,19 @@ class RecommendationServiceTest {
             )
         )
 
+        // 카카오가 준 distanceMeter를 그대로 사용해 오름차순 정렬
         assertThat(result.map { it.kakaoPlaceId }).containsExactly("near", "far")
-        assertThat(result[0].distanceMeter!!).isLessThan(result[1].distanceMeter!!)
+        assertThat(result[0].distanceMeter).isEqualTo(300)
+        assertThat(result[1].distanceMeter).isEqualTo(5000)
     }
 
     @Test
-    fun `DISTANCE + mood - mood 필터 적용 후 거리 정렬`() {
+    fun `DISTANCE + mood - mood 필터 적용 후 카카오 distanceMeter로 정렬`() {
         val result = recommendService.recommend(
             request(
                 listOf(
-                    candidate("far-cafe", "카페 > 커피전문점", lat = 37.51, lng = 127.01),
-                    candidate("near-chicken", "음식점 > 치킨", lat = 37.5001, lng = 127.0001)
+                    candidate("far-cafe", "카페 > 커피전문점", distanceMeter = 9000),
+                    candidate("near-chicken", "음식점 > 치킨", distanceMeter = 100)
                 ),
                 sort = RecommendSort.DISTANCE,
                 lat = 37.5,
@@ -208,12 +212,18 @@ class RecommendationServiceTest {
     }
 
     @Test
-    fun `DISTANCE인데 좌표 없으면 InvalidRecommendParameterException`() {
-        assertThatThrownBy {
-            recommendService.recommend(
-                request(listOf(candidate("1", "음식점 > 한식")), sort = RecommendSort.DISTANCE)
+    fun `DISTANCE 후보에 distanceMeter 없으면 그대로 전달`() {
+        val result = recommendService.recommend(
+            request(
+                listOf(candidate("1", "음식점 > 한식")),
+                sort = RecommendSort.DISTANCE,
+                lat = 37.5,
+                lng = 127.0
             )
-        }.isInstanceOf(InvalidRecommendParameterException::class.java)
+        )
+
+        // 카카오가 거리를 안 주면 null 유지 (직접 계산하지 않음)
+        assertThat(result[0].distanceMeter).isNull()
     }
 
     @Test

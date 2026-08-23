@@ -8,4 +8,6 @@ import java.util.Optional;
 interface RestaurantRepository : JpaRepository<Restaurant, Long> {
      fun findByKakaoPlaceId(kakaoPlaceId: String) : Optional<Restaurant>
     fun findByKakaoPlaceIdIn(kakaoPlaceIds: List<String>) : List<Restaurant>
+    fun findByNameContainingIgnoreCase(name: String) : List<Restaurant>
+    fun findByAddressContainingIgnoreCase(address: String) : List<Restaurant>
 }

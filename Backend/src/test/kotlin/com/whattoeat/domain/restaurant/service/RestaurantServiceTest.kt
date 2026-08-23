@@ -1,18 +1,14 @@
 package com.whattoeat.domain.restaurant.service
 
-import com.whattoeat.domain.restaurant.entity.Category
 import com.whattoeat.domain.restaurant.entity.Restaurant
 import com.whattoeat.domain.restaurant.repository.RestaurantRepository
-import com.whattoeat.global.exception.RestaurantNotFoundException
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.mockito.BDDMockito.given
 import org.mockito.InjectMocks
 import org.mockito.Mock
 import org.mockito.junit.jupiter.MockitoExtension
-import java.util.Optional
 
 @ExtendWith(MockitoExtension::class)
 class RestaurantServiceTest {
@@ -23,57 +19,58 @@ class RestaurantServiceTest {
     @InjectMocks
     lateinit var restaurantService: RestaurantService
 
-    private fun createRestaurant(
-        kakaoId: String,
+    private fun restaurant(
+        id: Long,
         name: String,
-        category: Category,
-        region1: String
+        address: String
     ): Restaurant {
-        return Restaurant(
-            kakaoId,
-            name,
-            category,
-            "주소",
-            "도로명주소",
-            region1,
-            "강남구",
-            "역삼동",
-            null,
-            "02-0000-0000",
-            37.5,
-            127.0
+        val r = Restaurant(
+            kakaoPlaceId = "kakao-$id",
+            name = name,
+            category = com.whattoeat.domain.restaurant.entity.Category.KOREAN,
+            address = address,
+            roadAddress = null,
+            region1 = "부산",
+            region2 = "해운대구",
+            region3 = null,
+            region4 = null,
+            phone = null,
+            lat = 35.1,
+            lng = 129.1
         )
+        org.springframework.test.util.ReflectionTestUtils.setField(r, "id", id)
+        return r
     }
 
     @Test
-    fun `findByKakaoPlaceId 성공`() {
-        val restaurant = createRestaurant(
-            "kakao-1",
-            "식당",
-            Category.KOREAN,
-            "서울"
-        )
+    fun `이름 LIKE 검색 - 부분 일치 반환`() {
+        given(restaurantRepository.findByNameContainingIgnoreCase("해운대"))
+            .willReturn(listOf(restaurant(1L, "해운대 맛집", "부산 해운대구"), restaurant(2L, "해운대 회센터", "부산 해운대구")))
 
-        given(
-            restaurantRepository.findByKakaoPlaceId("kakao-1")
-        ).willReturn(Optional.of(restaurant))
+        val result = restaurantService.searchByName("해운대")
 
-        val result =
-            restaurantService.findByKakaoPlaceId("kakao-1")
-
-        assertThat(result).isEqualTo(restaurant)
+        assertThat(result).hasSize(2)
+        assertThat(result.map { it.name }).containsExactly("해운대 맛집", "해운대 회센터")
     }
 
     @Test
-    fun `findByKakaoPlaceId 없으면 예외`() {
-        given(
-            restaurantRepository.findByKakaoPlaceId("unknown")
-        ).willReturn(Optional.empty())
+    fun `주소 LIKE 검색 - 부분 일치 반환`() {
+        given(restaurantRepository.findByAddressContainingIgnoreCase("수영구"))
+            .willReturn(listOf(restaurant(1L, "광안리 맛집", "부산 수영구 광안동")))
 
-        assertThatThrownBy {
-            restaurantService.findByKakaoPlaceId("unknown")
-        }
-            .isInstanceOf(RestaurantNotFoundException::class.java)
-            .hasMessageContaining("DB에 없는 식당입니다.")
+        val result = restaurantService.searchByAddress("수영구")
+
+        assertThat(result).hasSize(1)
+        assertThat(result[0].address).contains("수영구")
+    }
+
+    @Test
+    fun `이름 LIKE 검색 - 결과 없으면 빈 목록`() {
+        given(restaurantRepository.findByNameContainingIgnoreCase("없는식당"))
+            .willReturn(emptyList())
+
+        val result = restaurantService.searchByName("없는식당")
+
+        assertThat(result).isEmpty()
     }
 }

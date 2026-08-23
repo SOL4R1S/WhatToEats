@@ -63,4 +63,14 @@ class RestaurantService (
                     RestaurantNotFoundException(id)
                 }
     }
+
+    @Transactional(readOnly = true)
+    fun searchByName(name: String) : List<Restaurant> {
+        return restaurantRepository.findByNameContainingIgnoreCase(name)
+    }
+
+    @Transactional(readOnly = true)
+    fun searchByAddress(address: String) : List<Restaurant> {
+        return restaurantRepository.findByAddressContainingIgnoreCase(address)
+    }
 }

@@ -1206,6 +1206,40 @@ function SearchPage() {
   );
 
   /**
+   * 카카오 검색 실패(할당량 초과/일시 장애) 시
+   * DB에 저장된 식당에서 이름/주소 LIKE 검색으로 폴백
+   */
+  const searchDbFallback = useCallback(
+    async (query: string): Promise<void> => {
+      const trimmed = query.trim();
+      if (!trimmed) return;
+
+      try {
+        const res = await apiFetchJson<KakaoRestaurant[]>(
+          `/api/v1/restaurants/search?name=${encodeURIComponent(trimmed)}`,
+        );
+
+        if (res.ok && res.data && res.data.length > 0) {
+          setResults(res.data);
+          setHasMore(false);
+          setError("");
+        } else {
+          setResults([]);
+          setError("저장된 식당에도 검색 결과가 없습니다.");
+        }
+      } catch {
+        setResults([]);
+        setError("카카오·저장된 식당 모두 검색할 수 없습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+        isLoadingMoreRef.current = false;
+      }
+    },
+    [],
+  );
+
+  /**
    * 1. 키워드 검색
    *
    * 예:
@@ -1340,7 +1374,9 @@ function SearchPage() {
                */
               if (!isLoadingMoreRef.current) {
                 setResults([]);
-                setError("검색 결과를 불러오지 못했습니다.");
+                // 카카오 검색 실패(403/할당량 초과 등) → DB에 저장된 식당으로 폴백
+                setError("카카오 검색이 원활하지 않아 저장된 식당에서 찾아드릴게요.");
+                void searchDbFallback(trimmedQuery);
               }
             }
 

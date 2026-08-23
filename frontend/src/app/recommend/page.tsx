@@ -557,11 +557,104 @@ export default function RecommendPage() {
         setCurrent(null);
       }
     } catch (error) {
+      // 카카오 검색 실패(할당량 초과/일시 장애) → DB에 저장된 식당으로 폴백
+      const keyword = buildSearchKeyword();
+      if (keyword) {
+        await recommendWithDbFallback(keyword);
+        setRecommendLoading(false);
+        return;
+      }
       setRecommendError(error instanceof Error ? error.message : "추천을 불러오지 못했습니다.");
       setCurrent(null);
     }
 
     setRecommendLoading(false);
+  };
+
+  /**
+   * 카카오 검색 실패(할당량 초과/일시 장애) 시
+   * DB에 저장된 식당에서 이름 LIKE 검색으로 폴백 후 추천 진행
+   */
+  const recommendWithDbFallback = async (keyword: string): Promise<void> => {
+    try {
+      const res = await apiFetchJson<RecommendRestaurant[]>(
+        `/api/v1/restaurants/search?name=${encodeURIComponent(keyword)}`,
+      );
+
+      if (!res.ok || !res.data || res.data.length === 0) {
+        setRecommendError("카카오·저장된 식당 모두 조건에 맞는 식당이 없습니다.");
+        setCurrent(null);
+        return;
+      }
+
+      // DB 검색 결과를 카카오 후보 형태로 변환해 추천 파이프라인 재사용
+      const dbPool: KakaoRestaurant[] = res.data.map((r) => ({
+        kakaoPlaceId: r.kakaoPlaceId,
+        name: r.name,
+        category: r.category,
+        address: r.address,
+        roadAddress: r.roadAddress,
+        region1: r.region1,
+        region2: r.region2,
+        region3: r.region3,
+        region4: r.region4,
+        phone: r.phone,
+        lat: r.lat,
+        lng: r.lng,
+        distanceMeter: null,
+      }));
+
+      const recRes = await apiFetchJson<{ recommendations: RecommendItem[] }>(
+        "/api/v1/restaurants/recommend",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            candidates: dbPool.map((r) => ({
+              kakaoPlaceId: r.kakaoPlaceId,
+              name: r.name,
+              categoryName: r.category,
+              address: r.address,
+              roadAddress: r.roadAddress,
+              region1: r.region1,
+              region2: r.region2,
+              region3: r.region3,
+              region4: r.region4,
+              phone: r.phone,
+              lat: r.lat,
+              lng: r.lng,
+              distanceMeter: null,
+            })),
+            category: selectedCategory !== "기타" ? categoryToEnum[selectedCategory] : null,
+            mood: MOOD_TAGS.find((t) => t.label === selectedMood)?.value ?? null,
+            sort: "RANDOM",
+            lat: null,
+            lng: null,
+            exclude: [...seenIdsRef.current],
+          }),
+        },
+      );
+
+      if (!recRes.ok || !recRes.data || recRes.data.recommendations.length === 0) {
+        setRecommendError("저장된 식당에서 추천할 조건이 없습니다.");
+        setCurrent(null);
+        return;
+      }
+
+      poolRef.current = dbPool;
+      queueRef.current = recRes.data.recommendations;
+      const next = queueRef.current[0];
+      seenIdsRef.current.add(next.kakaoPlaceId);
+      const full = poolRef.current.find((r) => r.kakaoPlaceId === next.kakaoPlaceId);
+      if (full) {
+        setCurrentLabel(next.categoryLabel);
+        setCurrent(await ensureRestaurant(full));
+      } else {
+        setCurrent(null);
+      }
+    } catch {
+      setRecommendError("카카오·저장된 식당 모두 추천할 수 없습니다. 잠시 후 다시 시도해주세요.");
+      setCurrent(null);
+    }
   };
 
   const handleRecommend = async () => {

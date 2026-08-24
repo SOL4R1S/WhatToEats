@@ -66,6 +66,12 @@ class RestaurantService (
 
     @Transactional(readOnly = true)
     fun searchByName(name: String) : List<Restaurant> {
+        // 1순위: FULLTEXT ngram (부분일치도 인덱스 사용, 데이터 커져도 빠름)
+        val fullTextResults = restaurantRepository.searchByNameFullText(name)
+        if (fullTextResults.isNotEmpty()) {
+            return fullTextResults
+        }
+        // 2순위: 접두어/부분일치 LIKE 폴백 (FULLTEXT가 0건일 때)
         return restaurantRepository.findByNameContainingIgnoreCase(name)
     }
 

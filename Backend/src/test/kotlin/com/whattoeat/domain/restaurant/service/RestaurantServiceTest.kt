@@ -43,14 +43,27 @@ class RestaurantServiceTest {
     }
 
     @Test
-    fun `이름 LIKE 검색 - 부분 일치 반환`() {
-        given(restaurantRepository.findByNameContainingIgnoreCase("해운대"))
+    fun `이름 검색 - FULLTEXT가 결과 있으면 그대로 반환`() {
+        given(restaurantRepository.searchByNameFullText("해운대"))
             .willReturn(listOf(restaurant(1L, "해운대 맛집", "부산 해운대구"), restaurant(2L, "해운대 회센터", "부산 해운대구")))
 
         val result = restaurantService.searchByName("해운대")
 
         assertThat(result).hasSize(2)
         assertThat(result.map { it.name }).containsExactly("해운대 맛집", "해운대 회센터")
+    }
+
+    @Test
+    fun `이름 검색 - FULLTEXT 0건이면 LIKE로 폴백`() {
+        given(restaurantRepository.searchByNameFullText("해운대"))
+            .willReturn(emptyList())
+        given(restaurantRepository.findByNameContainingIgnoreCase("해운대"))
+            .willReturn(listOf(restaurant(3L, "해운대암소갈비집", "부산 해운대구")))
+
+        val result = restaurantService.searchByName("해운대")
+
+        assertThat(result).hasSize(1)
+        assertThat(result[0].name).isEqualTo("해운대암소갈비집")
     }
 
     @Test
@@ -65,7 +78,9 @@ class RestaurantServiceTest {
     }
 
     @Test
-    fun `이름 LIKE 검색 - 결과 없으면 빈 목록`() {
+    fun `이름 검색 - FULLTEXT와 LIKE 모두 결과 없으면 빈 목록`() {
+        given(restaurantRepository.searchByNameFullText("없는식당"))
+            .willReturn(emptyList())
         given(restaurantRepository.findByNameContainingIgnoreCase("없는식당"))
             .willReturn(emptyList())
 

@@ -13,9 +13,9 @@
     "android": {
       "package": "app.whattoeat.mobile",
       "adaptiveIcon": {
-        "backgroundColor": "#ffffff",
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "monochromeImage": "./assets/images/adaptive-icon.png"
+        "backgroundColor": "#FAFAF8",
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "backgroundImage": "./assets/images/adaptive-icon-background.png"
       }
     },
     "web": {
@@ -25,7 +25,12 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      ["expo-splash-screen", {
+        "image": "./assets/images/splash-icon.png",
+        "imageWidth": 200,
+        "backgroundColor": "#FAFAF8"
+      }]
     ],
     "experiments": {
       "typedRoutes": true

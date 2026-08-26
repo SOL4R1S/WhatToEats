@@ -227,8 +227,8 @@ export default function LoginPage() {
                 />
               </button>
               <p className="text-center text-xs text-muted">
-                로그인하면 <button className="text-primary hover:underline">서비스 이용약관</button>과{" "}
-                <button className="text-primary hover:underline">개인정보 처리방침</button>에 동의하게 됩니다.
+                로그인하면 <Link href="/legal/terms.html" className="text-primary hover:underline">서비스 이용약관</Link>과{" "}
+                <Link href="/legal/privacy.html" className="text-primary hover:underline">개인정보 처리방침</Link>에 동의하게 됩니다.
               </p>
             </div>
           ) : (
@@ -320,8 +320,8 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-8 flex justify-center gap-4 text-xs text-muted-soft">
-            <button className="hover:text-muted">이용약관</button>
-            <button className="hover:text-muted">개인정보처리방침</button>
+            <Link href="/legal/terms.html" className="hover:text-muted">이용약관</Link>
+            <Link href="/legal/privacy.html" className="hover:text-muted">개인정보처리방침</Link>
             <button className="hover:text-muted">고객센터</button>
           </div>
         </div>

@@ -10,13 +10,17 @@ import org.springframework.data.jpa.repository.Query
 import org.springframework.data.repository.query.Param
 
 interface FeedRepository : JpaRepository<Feed, Long> {
+    // 소프트삭제(deleted_at NOT NULL)된 피드는 모든 공개 목록에서 제외한다.
     @EntityGraph(attributePaths = ["user", "restaurant"])
+    @Query("select f from Feed f where f.deletedAt is null order by f.id desc")
     fun findAllByOrderByIdDesc(pageable: Pageable): Page<Feed>
 
     @EntityGraph(attributePaths = ["user", "restaurant"])
+    @Query("select f from Feed f where f.user.id = :userId and f.deletedAt is null order by f.id desc")
     fun findByUserId(userId: Long, pageable: Pageable): Page<Feed>
 
     @EntityGraph(attributePaths = ["user", "restaurant"])
+    @Query("select f from Feed f where f.restaurant.id = :restaurantId and f.deletedAt is null order by f.id desc")
     fun findByRestaurantId(restaurantId: Long, pageable: Pageable): Page<Feed>
 
     // 팔로잉 탭: 나 자신이거나 내가 팔로우하는 사람의 글. 팔로우 목록을 Java로 통째로 가져와
@@ -26,20 +30,20 @@ interface FeedRepository : JpaRepository<Feed, Long> {
     @Query(
         """
         select f from Feed f
-        where f.user.id = :userId
-           or exists (
+        where (f.user.id = :userId or exists (
                 select 1 from Follow fo
                 where fo.follower.id = :userId and fo.following.id = f.user.id
-              )
+              ))
+          and f.deletedAt is null
         order by f.id desc
         """,
         countQuery = """
         select count(f) from Feed f
-        where f.user.id = :userId
-           or exists (
+        where (f.user.id = :userId or exists (
                 select 1 from Follow fo
                 where fo.follower.id = :userId and fo.following.id = f.user.id
-              )
+              ))
+          and f.deletedAt is null
         """,
     )
     fun findFollowingFeeds(@Param("userId") userId: Long, pageable: Pageable): Page<Feed>
@@ -57,6 +61,7 @@ interface FeedRepository : JpaRepository<Feed, Long> {
                 select 1 from Follow fo
                 where fo.follower.id = :userId and fo.following.id = f.user.id
               )
+          and f.deletedAt is null
           and (:beforeFeedId is null or f.id < :beforeFeedId)
         order by f.id desc
         """,

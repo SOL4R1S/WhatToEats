@@ -40,6 +40,7 @@ services:
     restart: unless-stopped
     environment:
       SERVER_PORT: 8081
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/whattoeat?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       SPRING_DATASOURCE_USERNAME: whattoeat
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
@@ -51,6 +52,11 @@ services:
       APP_FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL is required}
       APP_UPLOAD_URL_PREFIX: "${BACKEND_PUBLIC_URL:?BACKEND_PUBLIC_URL is required}/uploads/"
       COOKIE_SECURE: "true"
+      # 관리자 초기 계정 (운영 어드민 로그인 + 신고 검토용) → app.admin.username/password
+      APP_ADMIN_USERNAME: ${ADMIN_USERNAME:?ADMIN_USERNAME is required}
+      APP_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?ADMIN_PASSWORD is required}
+      # 헤르메스 에이전트가 신고 큐를 폴링할 때 쓰는 내부 시크릿 → app.agent-key
+      APP_AGENT_KEY: ${AGENT_KEY:?AGENT_KEY is required}
     ports:
       - "127.0.0.1:8081:8081"
     depends_on:

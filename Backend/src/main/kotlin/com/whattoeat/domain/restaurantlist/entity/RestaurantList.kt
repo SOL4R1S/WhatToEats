@@ -51,6 +51,22 @@ class RestaurantList protected constructor() : BaseEntity() {
     var items: MutableList<RestaurantListItem> = ArrayList()
         protected set
 
+    /** 소프트삭제 시각. NULL=정상, NOT NULL=숨김(롤백 가능). */
+    @Column(name = "deleted_at")
+    var deletedAt: LocalDateTime? = null
+        protected set
+
+    fun softDelete() {
+        if (this.deletedAt == null) this.deletedAt = LocalDateTime.now()
+    }
+
+    fun restore() {
+        this.deletedAt = null
+    }
+
+    val isDeleted: Boolean
+        get() = deletedAt != null
+
     constructor(
         user: User,
         title: String,

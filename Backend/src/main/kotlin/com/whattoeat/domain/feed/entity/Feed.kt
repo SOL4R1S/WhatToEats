@@ -53,6 +53,23 @@ class Feed protected constructor() : BaseEntity() {
     var moodTag: MoodTag? = null
 
 
+    /** 소프트삭제 시각. NULL=정상, NOT NULL=숨김(롤백 가능). 물리 삭제는 배치가 별도 수행. */
+    @Column(name = "deleted_at")
+    var deletedAt: java.time.LocalDateTime? = null
+        protected set
+
+    fun softDelete() {
+        if (this.deletedAt == null) this.deletedAt = java.time.LocalDateTime.now()
+    }
+
+    fun restore() {
+        this.deletedAt = null
+    }
+
+    val isDeleted: Boolean
+        get() = deletedAt != null
+
+
     constructor(
         user: User,
         restaurant: Restaurant?,

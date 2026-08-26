@@ -32,6 +32,9 @@ jobs:
           KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           BACKEND_PUBLIC_URL: ${{ secrets.BACKEND_PUBLIC_URL }}
+          ADMIN_USERNAME: ${{ secrets.ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          AGENT_KEY: ${{ secrets.AGENT_KEY }}
         run: |
           set -euo pipefail
           umask 077
@@ -43,6 +46,9 @@ jobs:
           KAKAO_CLIENT_SECRET=$KAKAO_CLIENT_SECRET
           FRONTEND_URL=$FRONTEND_URL
           BACKEND_PUBLIC_URL=$BACKEND_PUBLIC_URL
+          ADMIN_USERNAME=$ADMIN_USERNAME
+          ADMIN_PASSWORD=$ADMIN_PASSWORD
+          AGENT_KEY=$AGENT_KEY
           EOF
 
       - name: Upload production environment file

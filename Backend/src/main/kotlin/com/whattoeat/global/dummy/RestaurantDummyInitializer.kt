@@ -5,11 +5,13 @@ import com.whattoeat.domain.restaurant.entity.Restaurant
 import com.whattoeat.domain.restaurant.repository.RestaurantRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
+import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
+@Profile("!prod")
 @Order(1)
 class RestaurantDummyInitializer(
     private val restaurantRepository: RestaurantRepository,

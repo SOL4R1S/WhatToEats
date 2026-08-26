@@ -28,6 +28,56 @@ class AuthService(
     private val jwtUtil: JwtUtil,
     private val redisTemplate: RedisTemplate<String, String>
 ) {
+    // 그린메일(익명 가입): 아이디·비밀번호·이메일 없이 기기가 유일 식별자.
+    // 닉네임은 서버에서 자동 발급(형용사+음식+난수)하고, 같은 deviceKey로 재호출하면
+    // 기존 계정으로 재로그인된다(계정 복구 = 기기 키 보유 전제).
+    fun anonymousSignup(deviceKey: String): AuthResult {
+        val normalizedDeviceKey = deviceKey.trim()
+        require(normalizedDeviceKey.length in 16..128) { "유효하지 않은 기기 키입니다." }
+
+        val loginId = anonLoginId(normalizedDeviceKey)
+        val user = userRepository.findByLoginId(loginId).orElseGet {
+            userRepository.save(
+                User.builder()
+                    .loginId(loginId)
+                    .nickname(generateAnonymousNickname())
+                    .email("") // 익명 계정은 이메일 미수집 (V4에서 nullable)
+                    .provider(Provider.ANONYMOUS)
+                    .role(Role.USER)
+                    .build(),
+            )
+        }
+
+        val accessToken = jwtUtil.generateAccessToken(user)
+        val refreshToken = jwtUtil.generateRefreshToken(user)
+        saveRefreshToken(checkNotNull(user.id) { "생성된 사용자의 id가 없습니다." }, refreshToken)
+        return AuthResult(accessToken, refreshToken, AuthUserResponse.from(user))
+    }
+
+    private fun anonLoginId(deviceKey: String): String = "anon:" + sha256(deviceKey).take(40)
+
+    private fun generateAnonymousNickname(): String {
+        val adjectives = listOf(
+            "조용한", "수줍은", "씩씩한", "포근한", "상큼한", "얼큰한", "고소한", "달달한",
+            "아삭한", "촉촉한", "짭짤한", "시원한", "따뜻한", "깔끔한", "느긋한", "호기심많은",
+        )
+        val foods = listOf(
+            "떡볶이", "라멘", "김밥", "치킨", "마라탕", "초밥", "파스타", "버거",
+            "국밥", "샌드위치", "케이크", "아이스크림", "만두", "순대", "타코", "커피",
+        )
+        var nickname: String
+        do {
+            nickname = "${adjectives.random()}${foods.random()}" +
+                (1000..9999).random().toString()
+        } while (userRepository.existsByNickname(nickname))
+        return nickname
+    }
+
+    private fun sha256(input: String): String =
+        java.security.MessageDigest.getInstance("SHA-256")
+            .digest(input.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+
     @Transactional
     fun signup(request: SignUpRequest): User {
         if (userRepository.existsByLoginId(request.loginId)) {

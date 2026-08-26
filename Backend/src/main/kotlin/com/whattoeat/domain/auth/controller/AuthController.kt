@@ -1,5 +1,7 @@
 package com.whattoeat.domain.auth.controller
 
+import com.whattoeat.domain.auth.dto.AnonymousAuthResponse
+import com.whattoeat.domain.auth.dto.AnonymousSignupRequest
 import com.whattoeat.domain.auth.dto.AuthUserResponse
 import com.whattoeat.domain.auth.dto.LoginRequest
 import com.whattoeat.domain.auth.dto.OAuthExchangeRequest
@@ -18,6 +20,29 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/api/v1/auth")
 class AuthController(private val authService: AuthService, private val rq: Rq) {
+
+    /**
+     * 그린메일(익명 가입/재로그인). deviceKey가 같으면 기존 계정으로 재로그인된다.
+     * 응답 바디에 토큰을 함께 내려준다 — 앱(RN)처럼 쿠키를 못 쓰는 클라이언트 대응.
+     */
+    @PostMapping("/anonymous")
+    fun anonymousSignup(
+        @Valid @RequestBody request: AnonymousSignupRequest
+    ): ResponseEntity<RsData<AnonymousAuthResponse>> {
+        val result = authService.anonymousSignup(request.deviceKey)
+        rq.setCookie("accessToken", result.accessToken, 60 * 60)
+        rq.setCookie("refreshToken", result.refreshToken, 60 * 60 * 24 * 7)
+        return ResponseEntity.ok(
+            RsData.success(
+                AnonymousAuthResponse(
+                    accessToken = result.accessToken,
+                    refreshToken = result.refreshToken,
+                    userProfile = result.userProfile,
+                ),
+                "익명 계정으로 시작합니다."
+            )
+        )
+    }
 
     @PostMapping("/signup")
     fun signup(

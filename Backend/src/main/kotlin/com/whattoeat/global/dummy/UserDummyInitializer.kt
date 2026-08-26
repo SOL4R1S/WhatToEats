@@ -6,11 +6,13 @@ import com.whattoeat.domain.user.entity.User
 import com.whattoeat.domain.user.repository.UserRepository
 import org.slf4j.LoggerFactory
 import org.springframework.boot.CommandLineRunner
+import org.springframework.context.annotation.Profile
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 
 @Component
+@Profile("!prod")
 @Order(2)
 class UserDummyInitializer(
     private val userRepository: UserRepository,

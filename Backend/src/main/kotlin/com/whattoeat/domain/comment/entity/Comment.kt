@@ -18,6 +18,22 @@ class Comment(
     user: User,
     content: String,
 ) : BaseEntity() {
+
+    /** 소프트삭제 시각. NULL=정상, NOT NULL=숨김(롤백 가능). */
+    @Column(name = "deleted_at")
+    var deletedAt: java.time.LocalDateTime? = null
+        protected set
+
+    fun softDelete() {
+        if (this.deletedAt == null) this.deletedAt = java.time.LocalDateTime.now()
+    }
+
+    fun restore() {
+        this.deletedAt = null
+    }
+
+    val isDeleted: Boolean
+        get() = deletedAt != null
     @field:JoinColumn(name = "feed_id", nullable = false)
     @field:ManyToOne(fetch = FetchType.LAZY)
     var feed: Feed = feed

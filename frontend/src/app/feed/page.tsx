@@ -4,6 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  Flag,
   Heart,
   MessageCircle,
   MoreHorizontal,
@@ -391,6 +392,22 @@ function FeedContent() {
     }
   };
 
+  const handleReportFeed = async (feedId: number) => {
+    const detail = window.prompt("신고 사유를 입력하세요 (선택).\n스팸/광고, 욕설, 음란물, 사기 등을 신고할 수 있습니다.")?.trim();
+    const reasonDetail = (detail ?? "").trim();
+    const res = await apiFetchJson(`/api/v1/reports/feeds/${feedId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reason: "SPAM", detail: reasonDetail }),
+    });
+    setOpenMenuFeedId(null);
+    if (res.ok) {
+      alert("신고가 접수되었습니다. 검토 후 처리됩니다.");
+    } else {
+      alert(res.message || "신고 접수에 실패했습니다.");
+    }
+  };
+
   const handleTabChange = (tab: "following" | "recommended") => {
     if (activeTab === tab) {
       return;
@@ -599,22 +616,35 @@ function FeedContent() {
 
                       {openMenuFeedId === post.feedId && (
                         <div className="absolute right-0 top-8 z-20 w-28 overflow-hidden rounded-lg border border-hairline-soft bg-surface shadow-lg">
-                          <button
-                            type="button"
-                            onClick={() => handleEditFeed(post)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-soft"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteFeed(post.feedId)}
-                            className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-surface-soft"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            삭제
-                          </button>
+                          {post.userId === currentUserId ? (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleEditFeed(post)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink hover:bg-surface-soft"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFeed(post.feedId)}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-surface-soft"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                삭제
+                              </button>
+                            </>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => handleReportFeed(post.feedId)}
+                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-red-500 hover:bg-surface-soft"
+                            >
+                              <Flag className="h-3.5 w-3.5" />
+                              신고
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>

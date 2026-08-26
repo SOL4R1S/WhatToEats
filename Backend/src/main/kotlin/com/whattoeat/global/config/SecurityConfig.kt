@@ -65,6 +65,7 @@ class SecurityConfig(
                     .requestMatchers(
                         "/api/v1/auth/login",
                         "/api/v1/auth/signup",
+                        "/api/v1/auth/anonymous",
                         "/api/v1/auth/oauth/exchange",
                         "/api/v1/auth/reissue",
                         "/api/v1/auth/logout",

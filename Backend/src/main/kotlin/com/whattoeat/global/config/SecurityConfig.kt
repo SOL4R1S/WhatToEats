@@ -64,6 +64,10 @@ class SecurityConfig(
             .authorizeHttpRequests { auth ->
                 auth
                     .requestMatchers(HttpMethod.OPTIONS).permitAll()
+                    // 에이전트 전용 경로: X-Agent-Key 헤더로 인증 대체.
+                    // 여기서는 permitAll로 열어 JWT 없는 접근을 통과시키고,
+                    // 실제 검증은 컨트롤러의 @PreAuthorize(hasRole('ADMIN') or agentKeyGuard)가 수행한다.
+                    .requestMatchers("/api/v1/admin/reports/**").permitAll()
                     .requestMatchers(
                         "/api/v1/auth/login",
                         "/api/v1/auth/signup",

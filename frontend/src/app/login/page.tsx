@@ -5,17 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { UserRound, ShieldCheck, RefreshCw } from "lucide-react";
 import { apiFetchJson } from "@/lib/api";
-
-// 기기 고유 익명 키를 로컬에 생성·유지 (그린메일: 이메일/비번 수집 없음)
-function getOrCreateDeviceKey(): string {
-  const KEY = "whattoeat.deviceKey";
-  let key = localStorage.getItem(KEY);
-  if (!key) {
-    key = crypto.randomUUID() + crypto.randomUUID();
-    localStorage.setItem(KEY, key);
-  }
-  return key;
-}
+import { getOrCreateDeviceKey } from "@/lib/deviceKey";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -28,17 +18,23 @@ export default function LoginPage() {
   const startAnonymous = async () => {
     setLoading(true);
     setError(null);
-    const { ok, data, message } = await apiFetchJson<any>("/api/v1/auth/anonymous", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ deviceKey: getOrCreateDeviceKey() }),
-    });
-    if (ok && data?.userProfile) {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("user", JSON.stringify(data.userProfile));
-      router.replace("/feed");
-    } else {
-      setError(message ?? "익명 계정 생성에 실패했습니다.");
+    try {
+      const { ok, data, message } = await apiFetchJson<any>("/api/v1/auth/anonymous", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deviceKey: getOrCreateDeviceKey() }),
+      });
+      if (ok && data?.userProfile) {
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("user", JSON.stringify(data.userProfile));
+        router.replace("/feed");
+      } else {
+        setError(message ?? "익명 계정 생성에 실패했습니다.");
+        setLoading(false);
+      }
+    } catch {
+      // getOrCreateDeviceKey/fetch 등에서 예외가 나도 무한 "시작하는 중..." 대신 에러를 보여준다
+      setError("익명 계정 생성에 실패했습니다. 새로고침 후 다시 시도해주세요.");
       setLoading(false);
     }
   };

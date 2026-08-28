@@ -221,6 +221,26 @@ internal class AuthControllerTest {
     }
 
     @Test
+    @DisplayName("비이메일 관리자 아이디로도 로그인 가능 - 이메일 형식 강제는 회원가입에서만")
+    fun loginSuccessWithNonEmailAdminId() {
+        val request = LoginRequest("admin", "admin-password")
+        val userProfile = AuthUserResponse(
+            1L, "관리자", null, "", Provider.LOCAL, Role.ADMIN, LocalDateTime.now()
+        )
+        val result = AuthResult("mocked-access-token", "mocked-refresh-token", userProfile)
+        given(authService.login(request)).willReturn(result)
+
+        mockMvc.perform(
+            MockMvcRequestBuilders.post("/api/v1/auth/login")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request))
+        )
+            .andExpect(MockMvcResultMatchers.status().isOk())
+            .andExpect(MockMvcResultMatchers.jsonPath("$.success").value(true))
+            .andExpect(MockMvcResultMatchers.jsonPath("$.data.role").value("ADMIN"))
+    }
+
+    @Test
     @DisplayName("아이디 빈 값으로 로그인 시 400 반환")
     fun loginFailBlankLoginId() {
         val request = LoginRequest("", "pass1234")

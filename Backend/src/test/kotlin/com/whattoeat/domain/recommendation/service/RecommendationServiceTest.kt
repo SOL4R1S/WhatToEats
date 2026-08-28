@@ -100,6 +100,7 @@ class RecommendationServiceTest {
         lng: Double? = null,
         exclude: List<String> = emptyList(),
         mood: MoodTag? = null,
+        maxDistanceMeter: Int? = null,
     ) = RecommendRequest(
         candidates = candidates,
         category = category,
@@ -107,7 +108,8 @@ class RecommendationServiceTest {
         lat = lat,
         lng = lng,
         exclude = exclude,
-        mood = mood
+        mood = mood,
+        maxDistanceMeter = maxDistanceMeter
     )
 
     @Test
@@ -306,5 +308,55 @@ class RecommendationServiceTest {
         then(feedRepository).should().countMoodVotes(MoodTag.DATE, restaurantIds)
         then(restaurantListItemRepository).should().countMoodVotes(MoodTag.DATE, restaurantIds)
 
+    }
+
+    @Test
+    fun `maxDistanceMeter 이내 후보만 반환 - 선택 지역 좌표 기준 거리 검증`() {
+        // 중심 (37.5665, 126.9911) — 약 서울 중구 을지로동
+        val result = recommendService.recommend(
+            request(
+                listOf(
+                    candidate("center", "음식점 > 한식", lat = 37.5665, lng = 126.9911), // 0m
+                    candidate("near", "음식점 > 한식", lat = 37.5745, lng = 126.9911),  // 북쪽 0.008도 ≈ 890m
+                    candidate("far", "음식점 > 한식", lat = 37.5965, lng = 126.9911)     // 북쪽 0.03도 ≈ 3.3km
+                ),
+                lat = 37.5665,
+                lng = 126.9911,
+                maxDistanceMeter = 2000
+            )
+        )
+
+        assertThat(result.map { it.kakaoPlaceId }).containsExactlyInAnyOrder("center", "near")
+    }
+
+    @Test
+    fun `maxDistanceMeter보다 먼 후보만 있으면 RestaurantNotFoundException`() {
+        assertThatThrownBy {
+            recommendService.recommend(
+                request(
+                    listOf(candidate("far", "음식점 > 한식", lat = 37.5965, lng = 126.9911)),
+                    lat = 37.5665,
+                    lng = 126.9911,
+                    maxDistanceMeter = 1000
+                )
+            )
+        }.isInstanceOf(RestaurantNotFoundException::class.java)
+            .hasMessage("조건에 맞는 식당이 없습니다.")
+    }
+
+    @Test
+    fun `maxDistanceMeter가 null이면 기존처럼 반경 필터 없이 전체 반환`() {
+        val result = recommendService.recommend(
+            request(
+                listOf(
+                    candidate("far", "음식점 > 한식", lat = 37.5965, lng = 126.9911),
+                    candidate("near", "음식점 > 한식", lat = 37.5665, lng = 126.9911)
+                ),
+                lat = 37.5665,
+                lng = 126.9911
+            )
+        )
+
+        assertThat(result.map { it.kakaoPlaceId }).containsExactlyInAnyOrder("far", "near")
     }
 }

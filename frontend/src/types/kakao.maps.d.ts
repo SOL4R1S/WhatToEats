@@ -67,6 +67,24 @@ declare global {
     ) => void;
   }
 
+  interface KakaoAddressResultItem {
+    address_name: string;
+    x: string;
+    y: string;
+  }
+
+  interface KakaoGeocoder {
+    addressSearch: (
+      query: string,
+      callback: (
+        result: KakaoAddressResultItem[],
+        status: string,
+        pagination: KakaoPagination,
+      ) => void,
+      options?: object,
+    ) => void;
+  }
+
   interface KakaoStatus {
     OK: string;
     ZERO_RESULT: string;
@@ -101,6 +119,7 @@ declare global {
 
         services?: {
           Places: new (map?: unknown) => KakaoPlaces;
+          Geocoder: new () => KakaoGeocoder;
           Status: KakaoStatus;
         };
       };

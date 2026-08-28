@@ -21,6 +21,7 @@ import {
 import AppShell, { SidebarProfile, SidebarCard } from "@/components/AppShell";
 import { apiFetchJson } from "@/lib/api";
 import { MOOD_TAGS } from "@/lib/mood";
+import { recommendRadiusMeter } from "@/lib/recommendGeo";
 import regionsData from "@/data/regions.json";
 
 const categories = ["한식", "일식", "양식", "중식", "분식", "카페", "치킨", "패스트푸드", "술집", "뷔페", "샤브샤브", "퓨전요리", "아시안", "기타"];
@@ -163,7 +164,6 @@ export default function RecommendPage() {
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [recommendLoading, setRecommendLoading] = useState(false);
   const [recommendError, setRecommendError] = useState("");
-  const [distanceFallback, setDistanceFallback] = useState(false);
   const [current, setCurrent] = useState<RecommendRestaurant | null>(null);
   const [hotPlaces, setHotPlaces] = useState<HotPlace[]>([]);
 
@@ -176,6 +176,8 @@ export default function RecommendPage() {
   const poolRef = useRef<KakaoRestaurant[]>([]);
   const queueRef = useRef<RecommendItem[]>([]);
   const seenIdsRef = useRef<Set<string>>(new Set());
+  // 선택 지역 이름 → 좌표 캐시 (같은 지역은 geocode를 한 번만 호출)
+  const regionPosCacheRef = useRef<Map<string, { lat: number; lng: number }>>(new Map());
   const [currentLabel, setCurrentLabel] = useState("기타");
 
   const locationLabel =
@@ -338,31 +340,34 @@ export default function RecommendPage() {
   };
 
   // 카카오 키워드 검색을 최대 3페이지(45건)까지 수집.
-  // position이 있으면 x,y + sort=distance로 카카오가 거리 계산·정렬을 해준다.
+  // position이 있으면 x,y + sort=distance로 카카오가 거리 계산·정렬을 해주고,
+  // radius가 있으면 선택 지역 중심 기준 반경을 하드리밋한다.
   const searchKakaoPool = (
-    keyword: string,
-    groupCode: string,
-    position: { lat: number; lng: number } | null,
-  ): Promise<KakaoRestaurant[]> => {
-    return new Promise((resolve, reject) => {
-      const maps = window.kakao?.maps;
-      if (!maps || !placesRef.current || !maps.services) {
-        reject(new Error("카카오맵 검색 서비스를 불러오는 중입니다."));
-        return;
-      }
+      keyword: string,
+      groupCode: string,
+      position: { lat: number; lng: number } | null,
+      radius: number | null,
+    ): Promise<KakaoRestaurant[]> => {
+      return new Promise((resolve, reject) => {
+        const maps = window.kakao?.maps;
+        if (!maps || !placesRef.current || !maps.services) {
+          reject(new Error("카카오맵 검색 서비스를 불러오는 중입니다."));
+          return;
+        }
 
-      const services = maps.services;
-      const all: KakaoRestaurant[] = [];
+        const services = maps.services;
+        const all: KakaoRestaurant[] = [];
 
-      const searchOptions: Record<string, unknown> = {
-        category_group_code: groupCode,
-        size: 15,
-      };
-      if (position) {
-        searchOptions.x = position.lng; // 카카오는 x=경도
-        searchOptions.y = position.lat; // y=위도
-        searchOptions.sort = "distance"; // ★ 거리 계산·정렬은 카카오에 위임
-      }
+        const searchOptions: Record<string, unknown> = {
+          category_group_code: groupCode,
+          size: 15,
+        };
+        if (position && radius) {
+          searchOptions.x = position.lng; // 카카오는 x=경도
+          searchOptions.y = position.lat; // y=위도
+          searchOptions.radius = radius; // ★ 선택 지역 중심 기준 반경(미터)
+          searchOptions.sort = "distance"; // ★ 거리 계산·정렬은 카카오에 위임
+        }
 
       placesRef.current.keywordSearch(
         keyword,
@@ -435,35 +440,44 @@ export default function RecommendPage() {
     return saveRes.data;
   };
 
-  const getCurrentPosition = (): Promise<{ lat: number; lng: number } | null> =>
+  // 선택한 동/읍/면 이름을 카카오 주소검색(Geocoder)으로 좌표 변환한다.
+  // 행정동명(을지로동)도 그대로 검색되고, 결과는 행정구역 대표 좌표(동/면사무소 부근)다.
+  // 같은 지역은 캐시해서 한 번만 호출한다.
+  const geocodeRegion = (label: string): Promise<{ lat: number; lng: number } | null> =>
     new Promise((resolve) => {
-      if (!navigator.geolocation) {
+      const Geocoder = window.kakao?.maps?.services?.Geocoder;
+      if (!Geocoder) {
         resolve(null);
         return;
       }
-      navigator.geolocation.getCurrentPosition(
-        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-        () => resolve(null),
-        // CoreLocation이 실패 콜백을 늦게 주는 환경에서 무한 대기하지 않도록
-        { timeout: 5000, maximumAge: 60000 },
-      );
+      const geocoder = new Geocoder();
+      geocoder.addressSearch(label, (result) => {
+        const first = result && result[0];
+        resolve(first ? { lat: Number(first.y), lng: Number(first.x) } : null);
+      });
     });
 
   const fetchRecommend = async () => {
     setRecommendLoading(true);
     setRecommendError("");
-    setDistanceFallback(false);
+
+    // 선택 지역 세부 수준에 따른 반경 — 카카오 검색 radius와 서버 검증(maxDistanceMeter) 공용.
+    // 구/군/시/도 "전체" 선택(radius null)이면 좌표 없이 지역명 텍스트로만 검색한다.
+    const radius = recommendRadiusMeter(selectedRegion2, selectedRegion3);
+    let position: { lat: number; lng: number } | null = null;
 
     try {
-      // 위치는 한 번만 요청 (거리순 폴 back 판단 + 카카오 sort=distance에 공용)
-      const position = await getCurrentPosition();
-
-      let effectiveSort = sortBy;
-
-      if (sortBy === "distance" && !position) {
-        // 위치를 못 얻으면 에러 대신 랜덤으로 폴 back하고 안내 표시
-        effectiveSort = "random";
-        setDistanceFallback(true);
+      // 위치는 선택 지역의 동/읍/면 좌표를 사용한다 (사용자 GPS가 아님).
+      // 기존에는 GPS를 x,y로 넘겨 선택 지역과 멀어지면 추천 결과가 이탈했다.
+      if (radius != null) {
+        const label = locationLabel;
+        const cached = label ? regionPosCacheRef.current.get(label) : null;
+        if (cached) {
+          position = cached;
+        } else if (label) {
+          position = await geocodeRegion(label);
+          if (position) regionPosCacheRef.current.set(label, position);
+        }
       }
 
       // 큐에 아직 안 본 후보가 남아있으면 재요청 없이 소비
@@ -474,10 +488,10 @@ export default function RecommendPage() {
         const groupCode = selectedCategory === "카페" ? "CE7" : "FD6";
 
         // mood 키워드를 포함해 검색하고, 결과가 없으면 mood 없이 재검색.
-        // position이 있으면 카카오가 x,y 기준 거리순 정렬(sort=distance)을 해준다.
-        let pool = await searchKakaoPool(`${keyword} ${selectedMood}`.trim(), groupCode, position);
+        // position+radius가 있으면 카카오가 지역 중심 기준 거리순 정렬 + 반경 제한을 해준다.
+        let pool = await searchKakaoPool(`${keyword} ${selectedMood}`.trim(), groupCode, position, radius);
         if (pool.length === 0 && selectedMood) {
-          pool = await searchKakaoPool(keyword, groupCode, position);
+          pool = await searchKakaoPool(keyword, groupCode, position, radius);
         }
 
         if (pool.length === 0) {
@@ -512,9 +526,12 @@ export default function RecommendPage() {
               })),
               category: selectedCategory !== "기타" ? categoryToEnum[selectedCategory] : null,
               mood: MOOD_TAGS.find((t) => t.label === selectedMood)?.value ?? null,
-              sort: effectiveSort === "distance" ? "DISTANCE" : "RANDOM",
+              sort: sortBy === "distance" ? "DISTANCE" : "RANDOM",
+              // 선택 지역 좌표 (사용자 GPS가 아님) — 서버가 반경 검증에 사용
               lat: position?.lat ?? null,
               lng: position?.lng ?? null,
+              // 선택 지역 기준 반경 검증 임계값 (카카오 검색 radius와 동일 값)
+              maxDistanceMeter: radius,
               exclude: [...seenIdsRef.current],
             }),
           },
@@ -560,7 +577,7 @@ export default function RecommendPage() {
       // 카카오 검색 실패(할당량 초과/일시 장애) → DB에 저장된 식당으로 폴백
       const keyword = buildSearchKeyword();
       if (keyword) {
-        await recommendWithDbFallback(keyword);
+        await recommendWithDbFallback(keyword, position, radius);
         setRecommendLoading(false);
         return;
       }
@@ -575,7 +592,11 @@ export default function RecommendPage() {
    * 카카오 검색 실패(할당량 초과/일시 장애) 시
    * DB에 저장된 식당에서 이름 LIKE 검색으로 폴백 후 추천 진행
    */
-  const recommendWithDbFallback = async (keyword: string): Promise<void> => {
+  const recommendWithDbFallback = async (
+    keyword: string,
+    position: { lat: number; lng: number } | null,
+    radius: number | null,
+  ): Promise<void> => {
     try {
       const res = await apiFetchJson<RecommendRestaurant[]>(
         `/api/v1/restaurants/search?name=${encodeURIComponent(keyword)}`,
@@ -627,8 +648,10 @@ export default function RecommendPage() {
             category: selectedCategory !== "기타" ? categoryToEnum[selectedCategory] : null,
             mood: MOOD_TAGS.find((t) => t.label === selectedMood)?.value ?? null,
             sort: "RANDOM",
-            lat: null,
-            lng: null,
+            // 카카오 검색 실패로 좌표 없이 조회된 후보라도 서버가 선택 지역 반경 안인지 검증한다
+            lat: position?.lat ?? null,
+            lng: position?.lng ?? null,
+            maxDistanceMeter: radius,
             exclude: [...seenIdsRef.current],
           }),
         },
@@ -924,12 +947,6 @@ export default function RecommendPage() {
               </div>
             ) : (
               <>
-                {distanceFallback && (
-                  <p className="mb-3 rounded-xl bg-surface-soft px-4 py-2.5 text-center text-xs font-bold text-muted">
-                    현재 위치를 가져올 수 없어 랜덤으로 추천했어요
-                  </p>
-                )}
-
                 <div className="recommend-result-main">
                   {/* Map */}
                   <div className="recommend-result-map relative mb-4 h-48 w-full overflow-hidden rounded-2xl border border-hairline-soft sm:h-56">

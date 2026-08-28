@@ -13,6 +13,10 @@ import com.whattoeat.domain.restaurant.repository.RestaurantRepository
 import com.whattoeat.domain.restaurantlist.repository.RestaurantListItemRepository
 import com.whattoeat.global.exception.InvalidRecommendParameterException
 import com.whattoeat.global.exception.RestaurantNotFoundException
+import kotlin.math.asin
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import org.springframework.stereotype.Service
 
 @Service
@@ -32,6 +36,7 @@ class RecommendService(
             .filter { isFoodOrCafe(it.categoryName) }                   // 만화방/놀이시설 등 제외
             .filter { matchesCategory(it.categoryName, request.category) } // 선택 카테고리 일치만
             .filter { it.kakaoPlaceId !in request.exclude }             // 이미 본 식당 제외
+            .filter { isWithinRegionRadius(it, request) }               // ★ 선택 지역 좌표 기준 반경 검증
             .map { toItem(it) }
 
         if (items.isEmpty()) {
@@ -80,6 +85,30 @@ class RecommendService(
 
     private fun matchesCategory(categoryName: String?, category: Category?): Boolean =
         category == null || category == Category.ETC || toCategory(categoryName) == category
+
+    // 선택 지역(lat/lng) 기준 maxDistanceMeter(미터) 반경 밖 후보 제외.
+    // 카카오 검색이 지역 중심 좌표 기준으로 이뤄지더라도, GPS 기반 등으로 섞여 들어온
+    // 먼 곳 후보를 서버에서 한 번 더 걸러내는 안전망. lat/lng 또는 maxDistanceMeter가
+    // 없으면(시/도 전체 선택 등) 필터링하지 않는다.
+    private fun isWithinRegionRadius(
+        candidate: RestaurantRequest.FromKakao,
+        request: RecommendRequest,
+    ): Boolean {
+        val maxMeters = request.maxDistanceMeter ?: return true
+        val lat = request.lat ?: return true
+        val lng = request.lng ?: return true
+        return haversineMeters(candidate.lat, candidate.lng, lat, lng) <= maxMeters
+    }
+
+    /** 두 좌표(위도/경도, 도 단위) 사이의 직선 거리(미터). Haversine 공식. */
+    private fun haversineMeters(lat1: Double, lng1: Double, lat2: Double, lng2: Double): Double {
+        val earthRadiusMeters = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLng = Math.toRadians(lng2 - lng1)
+        val a = sin(dLat / 2) * sin(dLat / 2) +
+            cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLng / 2) * sin(dLng / 2)
+        return earthRadiusMeters * 2 * asin(sqrt(a))
+    }
 
     private fun toItem(candidate: RestaurantRequest.FromKakao): RecommendItem =
         RecommendItem(

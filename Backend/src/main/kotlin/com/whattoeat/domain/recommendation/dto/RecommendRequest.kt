@@ -11,8 +11,11 @@ data class RecommendRequest(
     val candidates: List<@Valid RestaurantRequest.FromKakao>,
     val category: Category? = null,
     val sort: RecommendSort = RecommendSort.RANDOM,
+    // 선택 지역 중심 좌표 (추천 탭에서 유저가 고른 동/구의 좌표)
     val lat: Double? = null,
     val lng: Double? = null,
     val exclude: List<String> = emptyList(),
     val mood: MoodTag? = null,
+    // 선택 지역 중심(lat/lng)으로부터 후보를 허용할 최대 거리(미터). null이면 반경 필터링 안 함.
+    val maxDistanceMeter: Int? = null,
 )

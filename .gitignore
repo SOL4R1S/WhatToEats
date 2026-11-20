@@ -89,3 +89,4 @@ Backend/build/
 *.mp4
 *.avi
 /.env.production
+/.env
